@@ -20,11 +20,13 @@ FB_LINK = "https://www.facebook.com/profile.php?id=61574378159053"
 def init_fb():
     if not firebase_admin._apps:
         try:
-            # Fixing the common Newline issue in Private Keys
+            # Cleaning the Private Key (Very Important for Vercel)
             raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n').strip().strip('"').strip("'")
-            cert_dict = {
+            
+            # Structuring the Credentials
+            cert_config = {
                 "type": "service_account",
-                "project_id": "ultimatemediasearch",
+                "project_id": os.getenv("FIREBASE_PROJECT_ID"),
                 "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
                 "private_key": raw_key,
                 "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
@@ -34,11 +36,16 @@ def init_fb():
                 "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
                 "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL")
             }
-            cred = credentials.Certificate(cert_dict)
-            firebase_admin.initialize_app(cred, {'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'})
+            
+            cred = credentials.Certificate(cert_config)
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': f'https://{os.getenv("FIREBASE_PROJECT_ID")}-default-rtdb.asia-southeast1.firebasedatabase.app/'
+            })
+            return True
         except Exception as e:
-            return str(e)
-    return None
+            print(f"Init Error: {e}")
+            return False
+    return True
 
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
@@ -50,68 +57,78 @@ def webhook():
                 uid = str(update.message.chat_id)
                 u_name = update.effective_user.first_name
                 
-                init_fb()
-                user_ref = db.reference(f'users/{uid}')
-                if not user_ref.get():
-                    user_ref.set({"name": u_name, "pts": 10, "refs": 0, "last_ad": 0})
+                if init_fb():
+                    user_ref = db.reference(f'users/{uid}')
+                    if not user_ref.get():
+                        user_ref.set({"name": u_name, "pts": 10, "refs": 0, "last_ad": 0})
 
                 dash_url = f"https://{request.host}/dashboard?id={uid}&name={u_name}"
-                kb = ReplyKeyboardMarkup([[KeyboardButton("📊 Open Dashboard", web_app=WebAppInfo(url=dash_url))]], resize_keyboard=True)
+                kb = ReplyKeyboardMarkup([[KeyboardButton("📊 My Dashboard", web_app=WebAppInfo(url=dash_url))]], resize_keyboard=True)
                 
-                msg = f"✨ *Welcome {u_name}!*\n\n🚀 'Success is not final, failure is not fatal: it is the courage to continue that counts.'\n\nAbhi dashboard open karein aur earning shuru karein!"
+                msg = (f"✨ *Assalam-o-Alaikum, {u_name}!* ✨\n\n"
+                       f"🚀 *'Hausle buland kar, manzil tere kareeb hai.'*\n\n"
+                       f"Dashboard open karein aur apna gift claim karein!")
+                
                 bot.send_photo(uid, WELCOME_IMG, caption=msg, parse_mode="Markdown", reply_markup=kb)
             return "ok", 200
-        except Exception as e:
-            return str(e), 200
-    return "<h1>Bot is Online</h1>", 200
+        except: return "ok", 200
+    return "Bot Online", 200
 
 @app.route('/dashboard')
 def dashboard():
-    try:
-        uid = request.args.get('id', '0')
-        name = request.args.get('name', 'User')
-        err = init_fb()
-        if err: return f"Firebase Error: {err}"
+    uid = request.args.get('id', '0')
+    name = request.args.get('name', 'User')
+    
+    # Check if Firebase Connected
+    if not init_fb():
+        return "<h3>⚠️ Configuration Error: Please check your Firebase Keys in Vercel.</h3>"
 
+    try:
         u_ref = db.reference(f'users/{uid}')
         u_data = u_ref.get() or {"pts": 0, "refs": 0, "last_ad": 0}
         
         msg = ""
+        # Ad Timer Logic
         if request.args.get('ad') == '1':
             now = time.time()
             if now - u_data.get('last_ad', 0) > 86400:
                 u_ref.update({"pts": u_data['pts'] + 15, "last_ad": now})
-                msg = "✅ 15 Points Added!"
+                msg = "✅ Points Earned!"
                 u_data = u_ref.get()
             else:
-                msg = "🕒 Try again after 24 hours!"
+                msg = "🕒 Wait for 24 hours!"
 
         return render_template_string("""
         <!DOCTYPE html>
         <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-            body { background: #0f172a; color: white; font-family: sans-serif; text-align: center; padding: 10px; }
-            .card { background: #1e293b; border-radius: 15px; padding: 20px; border: 1px solid #334155; margin-bottom: 10px; }
-            .btn { background: #fbbf24; color: black; padding: 12px; border-radius: 8px; width: 100%; border: none; font-weight: bold; cursor: pointer; margin-top:10px; display:block; text-decoration:none; }
-            .task { background: #161b22; padding: 12px; border-radius: 10px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: white; border: 1px solid #30363d; }
+            body { background: #0b0e14; color: white; font-family: sans-serif; text-align: center; padding: 15px; }
+            .card { background: #161b22; border-radius: 20px; padding: 20px; border: 1px solid #30363d; margin-bottom: 15px; }
+            .pts { font-size: 40px; color: #fbbf24; font-weight: bold; }
+            .btn { background: #fbbf24; color: black; padding: 12px; border-radius: 10px; width: 100%; border: none; font-weight: bold; margin-top: 10px; cursor: pointer; display:block; text-decoration:none;}
+            .task { background: #21262d; padding: 12px; border-radius: 10px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: white; border: 1px solid #30363d; }
         </style></head>
         <body>
             <div class="card">
-                <p>Balance</p><h1 style="color:#fbbf24; margin:0;">{{pts}} pts</h1>
-                <p>Referrals: {{refs}}</p>
+                <p style="opacity:0.6;">Wallet Balance</p>
+                <div class="pts">{{pts}} pts</div>
+                <p>Referrals: <b>{{refs}}</b></p>
+                <a href="#" class="btn" onclick="alert('Withdraw logic working!')">💳 CLAIM MONEY</a>
             </div>
-            <p style="color:#fbbf24;">{{msg}}</p>
+            {% if msg %}<p style="color:#fbbf24;">{{msg}}</p>{% endif %}
             <div style="text-align:left;">
-                <a href="{{yt}}" class="task"><span>YouTube</span> <b>GO</b></a>
-                <a href="{{insta}}" class="task"><span>Instagram</span> <b>GO</b></a>
-                <a href="{{fb}}" class="task"><span>Facebook</span> <b>GO</b></a>
-                <div class="task" onclick="startAd()" style="cursor:pointer;"><span id="adT">Watch Ad (30s)</span> <b>START</b></div>
+                <b>🚀 TASKS</b>
+                <a href="{{yt}}" target="_blank" class="task"><span>YouTube Subscribe</span> <b style="color:#238636;">GO</b></a>
+                <a href="{{insta}}" target="_blank" class="task"><span>Instagram Follow</span> <b style="color:#238636;">GO</b></a>
+                <a href="{{fb}}" target="_blank" class="task"><span>Facebook Page</span> <b style="color:#238636;">GO</b></a>
+                <div class="task" onclick="startAd()" style="cursor:pointer;"><span id="adT">Watch Ad (30s)</span> <b style="color:#fbbf24;">START</b></div>
             </div>
             <script>
                 function startAd() {
                     let s = 30; let btn = document.getElementById('adT');
+                    btn.parentElement.style.pointerEvents = "none";
                     let t = setInterval(() => {
-                        btn.innerHTML = "Wait: " + s + "s"; s--;
+                        btn.innerHTML = "Security Check: " + s + "s"; s--;
                         if(s<0){ clearInterval(t); window.location.href="/dashboard?id={{uid}}&name={{name}}&ad=1"; }
                     }, 1000);
                 }
@@ -119,4 +136,4 @@ def dashboard():
         </body></html>
         """, pts=u_data['pts'], refs=u_data['refs'], uid=uid, name=name, yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, msg=msg)
     except Exception as e:
-        return f"App Error: {str(e)}"
+        return f"Database Error: {str(e)}"
