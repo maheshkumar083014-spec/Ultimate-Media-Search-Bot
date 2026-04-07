@@ -13,7 +13,9 @@ TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
 ADMIN_ID = "8678211883"
 bot = Bot(token=TOKEN)
 
-WELCOME_IMG = "https://i.ibb.co/zWJHms9p/image.jpg"
+# Aapki nayi photo yahan add kar di hai
+WELCOME_IMG = "https://i.ibb.co/39V9V4Y3/image.jpg" 
+
 YT_LINK = "https://www.youtube.com/@USSoccerPulse"
 INSTA_LINK = "https://www.instagram.com/digital_rockstar_m"
 FB_LINK = "https://www.facebook.com/profile.php?id=61574378159053"
@@ -68,7 +70,7 @@ def webhook():
                 bot.send_photo(uid, WELCOME_IMG, caption=msg, parse_mode="Markdown", reply_markup=kb)
             return "ok", 200
         except: return "ok", 200
-    return "Bot Running", 200
+    return "Bot Active", 200
 
 @app.route('/dashboard')
 def dashboard():
@@ -77,18 +79,18 @@ def dashboard():
     try:
         u_ref = db.reference(f'users/{uid}')
         u_data = u_ref.get() or {}
-        pts, refs, last_ad = u_data.get('pts', 0), u_data.get('refs', 0), u_data.get('last_ad', 0)
+        pts, last_ad = u_data.get('pts', 0), u_data.get('last_ad', 0)
         user_coupon = u_data.get('coupon', '...')
         
         msg = ""
         now = time.time()
         
         if request.args.get('claim_ad') == '1':
-            if now - last_ad > 3600: # Har 1 ghante me 1 ad (Aap change kar sakte ho)
+            if now - last_ad > 3600:
                 u_ref.update({"pts": pts + 10, "last_ad": now})
                 pts += 10
                 msg = "✅ Ad Success! +10 Points."
-            else: msg = "🕒 Thoda wait karein, ad abhi available nahi hai."
+            else: msg = "🕒 Please wait before watching next ad."
 
         if request.args.get('apply_coupon'):
             code = request.args.get('apply_coupon').strip()
