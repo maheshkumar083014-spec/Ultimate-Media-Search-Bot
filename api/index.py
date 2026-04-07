@@ -17,7 +17,7 @@ WELCOME_IMG = "https://i.ibb.co/zWJHms9p/image.jpg"
 YT_LINK = "https://www.youtube.com/@USSoccerPulse"
 INSTA_LINK = "https://www.instagram.com/digital_rockstar_m"
 FB_LINK = "https://www.facebook.com/profile.php?id=61574378159053"
-MOTIVATION_LINK = "https://t.me/Motivation_Quotes_Hindi"
+AD_LINK = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
 
 def init_fb():
     if not firebase_admin._apps:
@@ -52,7 +52,6 @@ def webhook():
                 user_ref = db.reference(f'users/{uid}')
                 u_data = user_ref.get()
                 
-                # Check and Create User/Coupon
                 if not u_data:
                     user_ref.set({"name": u_name, "pts": 10, "refs": 0, "last_ad": 0, "coupon": str(uuid.uuid4())[:8]})
                 elif "coupon" not in u_data:
@@ -61,16 +60,15 @@ def webhook():
                 dash_url = f"https://ultimate-media-search-bot.vercel.app/dashboard?id={uid}&name={u_name}"
                 kb = InlineKeyboardMarkup([[InlineKeyboardButton("🚀 Open Earning Dashboard", web_app=WebAppInfo(url=dash_url))]])
                 
-                motivational_msg = (
-                    f"✨ *Hello {u_name}!* ✨\n\n"
-                    f"💪 *'Haar tab hoti hai jab maan liya jata hai, jeet tab hoti hai jab thaan liya jata hai.'*\n\n"
-                    f"🌟 Aaj ka din aapki kamyabi ki nayi shuruat ho sakta hai. Dashboard kholein aur apna pehla bonus claim karein!\n\n"
-                    f"📊 *Niche button par click karein.*"
-                )
-                bot.send_photo(uid, WELCOME_IMG, caption=motivational_msg, parse_mode="Markdown", reply_markup=kb)
+                msg = (f"✨ *Hello {u_name}!* ✨\n\n"
+                       f"💪 *'Zindagi mein koshish karne walon ki kabhi haar nahi hoti.'*\n\n"
+                       f"🌟 Aaj se hi apni earning shuru karein!\n\n"
+                       f"📊 *Niche button par click karein.*")
+                
+                bot.send_photo(uid, WELCOME_IMG, caption=msg, parse_mode="Markdown", reply_markup=kb)
             return "ok", 200
         except: return "ok", 200
-    return "Running", 200
+    return "Bot Running", 200
 
 @app.route('/dashboard')
 def dashboard():
@@ -79,56 +77,29 @@ def dashboard():
     try:
         u_ref = db.reference(f'users/{uid}')
         u_data = u_ref.get() or {}
-        
-        # Ensure coupon exists for the user
-        if u_data and "coupon" not in u_data:
-            new_c = str(uuid.uuid4())[:8]
-            u_ref.update({"coupon": new_c})
-            u_data["coupon"] = new_c
-
-        pts = u_data.get('pts', 0)
-        refs = u_data.get('refs', 0)
-        last_ad = u_data.get('last_ad', 0)
-        user_coupon = u_data.get('coupon', '...GEN...')
+        pts, refs, last_ad = u_data.get('pts', 0), u_data.get('refs', 0), u_data.get('last_ad', 0)
+        user_coupon = u_data.get('coupon', '...')
         
         msg = ""
         now = time.time()
         
-        # Claim Ad
         if request.args.get('claim_ad') == '1':
-            if now - last_ad > 86400:
+            if now - last_ad > 3600: # Har 1 ghante me 1 ad (Aap change kar sakte ho)
                 u_ref.update({"pts": pts + 10, "last_ad": now})
                 pts += 10
-                msg = "✅ Ad Watch Success! +10 Points."
-            else: msg = "🕒 Limit: 1 Ad per day."
+                msg = "✅ Ad Success! +10 Points."
+            else: msg = "🕒 Thoda wait karein, ad abhi available nahi hai."
 
-        # Apply Friend's Coupon
         if request.args.get('apply_coupon'):
             code = request.args.get('apply_coupon').strip()
-            if code == user_coupon:
-                msg = "❌ Apna hi coupon use nahi kar sakte!"
-            else:
-                all_users = db.reference('users').get()
-                found = False
-                for k, v in all_users.items():
-                    if v.get('coupon') == code:
-                        # Reward the friend
-                        db.reference(f'users/{k}').update({"pts": v.get('pts', 0) + 5, "refs": v.get('refs', 0) + 1})
-                        # Reward current user
-                        u_ref.update({"pts": pts + 5})
-                        pts += 5
-                        msg = "🎁 Coupon Applied! +5 Points added to both."
-                        bot.send_message(k, f"🎊 Someone used your coupon! You got +5 points.")
-                        found = True
-                        break
-                if not found: msg = "❌ Wrong Coupon Code!"
-
-        # Withdraw
-        if request.args.get('submit') == '1' and pts >= 100:
-            p, u = request.args.get('phone'), request.args.get('upi')
-            db.reference(f'withdrawals/{uid}').set({"phone": p, "upi": u, "pts": pts})
-            bot.send_message(ADMIN_ID, f"💰 *NEW WITHDRAW REQUEST*\n👤 {name}\n💎 Points: {pts}\n📞 {p}\n🆔 {u}")
-            msg = "✅ Sent! Admin will pay you shortly."
+            all_users = db.reference('users').get()
+            for k, v in all_users.items():
+                if v.get('coupon') == code and k != uid:
+                    db.reference(f'users/{k}').update({"pts": v.get('pts', 0) + 5, "refs": v.get('refs', 0) + 1})
+                    u_ref.update({"pts": pts + 5})
+                    pts += 5
+                    msg = "🎁 Coupon Applied! +5 Pts."
+                    break
 
         return render_template_string("""
         <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -139,66 +110,49 @@ def dashboard():
             .pts { font-size:40px; color:#fbbf24; font-weight:bold; }
             .btn { background:#fbbf24; color:black; padding:10px; border-radius:10px; width:100%; border:none; font-weight:bold; cursor:pointer; }
             .task { background:#1e293b; padding:12px; border-radius:12px; margin-top:8px; display:flex; justify-content:space-between; align-items:center; text-decoration:none; color:white; border:1px solid #334155; }
-            .icon-box { width:30px; height:30px; border-radius:5px; display:flex; align-items:center; justify-content:center; margin-right:10px; font-size:14px; }
-            input { width:80%; padding:10px; margin:5px 0; border-radius:8px; border:1px solid #334155; background:#0f172a; color:white; }
-            #adCon { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:1000; padding-top:150px; }
+            .icon-box { width:30px; height:30px; border-radius:5px; display:flex; align-items:center; justify-content:center; margin-right:10px; }
+            input { width:70%; padding:8px; border-radius:5px; border:1px solid #334155; background:#0f172a; color:white; }
         </style></head>
         <body>
-            <div id="adCon"><h2>📺 Ad Loading...</h2><p id="tm">30s</p><p style="color:#334155;">[ Video Ad Placeholder ]</p></div>
-
             <div class="card">
                 <p style="margin:0; opacity:0.7;">My Points</p>
                 <div class="pts">{{pts}}</div>
-                {% if pts >= 100 %}
-                    <button class="btn" onclick="document.getElementById('wbox').style.display='block'">💳 WITHDRAW</button>
-                {% else %}
-                    <button class="btn" style="opacity:0.5;">🔒 NEED 100 PTS</button>
-                {% endif %}
+                <button class="btn" style="opacity:{{'1' if pts>=100 else '0.5'}}">💳 WITHDRAW (100 MIN)</button>
             </div>
 
-            {% if msg %}<p style="color:#fbbf24; background:#1e293b; padding:10px; border-radius:10px;">{{msg}}</p>{% endif %}
+            {% if msg %}<p style="color:#fbbf24;">{{msg}}</p>{% endif %}
 
             <div class="card">
-                <b>🎁 Your Coupon: <span style="color:#fbbf24;">{{user_coupon}}</span></b>
-                <p style="font-size:11px; opacity:0.6;">Enter friend's coupon below to get +5 pts</p>
-                <input type="text" id="cin" placeholder="Friend's Coupon">
-                <button onclick="applyC()" style="background:#22c55e; border:none; color:white; padding:5px 15px; border-radius:5px; cursor:pointer;">Apply</button>
-            </div>
-
-            <div id="wbox" style="display:none;" class="card">
-                <form method="GET">
-                    <input type="hidden" name="id" value="{{uid}}"><input type="hidden" name="name" value="{{name}}"><input type="hidden" name="submit" value="1">
-                    <input type="number" name="phone" placeholder="WhatsApp No" required>
-                    <input type="text" name="upi" placeholder="UPI ID" required>
-                    <button type="submit" class="btn" style="background:#22c55e; color:white;">Submit Details</button>
-                </form>
+                <b>🎁 Coupon: <span style="color:#fbbf24;">{{user_coupon}}</span></b><br><br>
+                <input type="text" id="cin" placeholder="Enter Friend's Coupon">
+                <button onclick="window.location.href='/dashboard?id={{uid}}&name={{name}}&apply_coupon='+document.getElementById('cin').value" style="background:#22c55e; border:none; color:white; padding:8px 12px; border-radius:5px;">Apply</button>
             </div>
 
             <div style="text-align:left;">
-                <p style="font-weight:bold; color:#94a3b8; font-size:13px;">DAILY TASKS</p>
+                <p style="font-weight:bold; color:#94a3b8; font-size:12px;">DAILY TASKS</p>
                 <a href="{{yt}}" class="task"><div style="display:flex;"><div class="icon-box" style="background:red;"><i class="fab fa-youtube"></i></div>YouTube</div><b>+5</b></a>
                 <a href="{{insta}}" class="task"><div style="display:flex;"><div class="icon-box" style="background:orange;"><i class="fab fa-instagram"></i></div>Instagram</div><b>+5</b></a>
-                <div class="task" onclick="goAd()" style="cursor:pointer;"><div style="display:flex;"><div class="icon-box" style="background:#fbbf24; color:black;"><i class="fas fa-play"></i></div>Watch Ad (30s)</div><b>+10</b></div>
+                <a href="{{fb}}" class="task"><div style="display:flex;"><div class="icon-box" style="background:#0668E1;"><i class="fab fa-facebook-f"></i></div>Facebook</div><b>+5</b></a>
                 
-                <a href="https://t.me/share/url?url=https://t.me/UltimateMediaSearchBot?start={{uid}}&text=Join Ultimate Earning Bot! 💰 %0A1. Open Dashboard %0A2. Use my Coupon: {{user_coupon}} %0A3. Get Free 5 Points instantly!" class="task" style="background:#3b82f6;">
-                    <div style="display:flex;"><div class="icon-box" style="background:white; color:#3b82f6;"><i class="fas fa-share-alt"></i></div>Share & Earn</div><b>+5</b>
-                </a>
+                <div class="task" onclick="watchAd()" style="cursor:pointer;"><div style="display:flex;"><div class="icon-box" style="background:#fbbf24; color:black;"><i class="fas fa-play"></i></div>Watch Ad (30s)</div><b id="adStatus">+10</b></div>
+                
+                <a href="https://t.me/share/url?url=https://t.me/UltimateMediaSearchBot?start={{uid}}&text=Use my coupon: {{user_coupon}} for +5 bonus!" class="task" style="background:#3b82f6;"><div style="display:flex;"><div class="icon-box" style="background:white; color:#3b82f6;"><i class="fas fa-share-alt"></i></div>Share & Earn</div><b>+5</b></a>
             </div>
 
             <script>
-                function goAd(){
-                    document.getElementById('adCon').style.display='block';
+                function watchAd(){
+                    window.open("{{ad_link}}", "_blank");
                     let s=30;
-                    let t=setInterval(()=>{
-                        document.getElementById('tm').innerHTML = s+"s"; s--;
-                        if(s<0){ clearInterval(t); window.location.href="/dashboard?id={{uid}}&name={{name}}&claim_ad=1"; }
+                    document.getElementById('adStatus').innerHTML = "Wait "+s+"s";
+                    let t = setInterval(()=>{
+                        s--; document.getElementById('adStatus').innerHTML = "Wait "+s+"s";
+                        if(s<=0){ 
+                            clearInterval(t); 
+                            window.location.href="/dashboard?id={{uid}}&name={{name}}&claim_ad=1";
+                        }
                     },1000);
-                }
-                function applyC(){
-                    let c = document.getElementById('cin').value;
-                    if(c) window.location.href="/dashboard?id={{uid}}&name={{name}}&apply_coupon="+c;
                 }
             </script>
         </body></html>
-        """, pts=pts, uid=uid, name=name, yt=YT_LINK, insta=INSTA_LINK, mot=MOTIVATION_LINK, user_coupon=user_coupon, msg=msg)
+        """, pts=pts, uid=uid, name=name, yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, ad_link=AD_LINK, user_coupon=user_coupon, msg=msg)
     except Exception as e: return str(e)
