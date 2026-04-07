@@ -8,153 +8,199 @@ from telegram import Update, Bot, InlineKeyboardMarkup, InlineKeyboardButton, We
 
 app = Flask(__name__)
 
-# --- CONFIG ---
+# --- CONFIGURATION ---
 TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
-ADMIN_ID = "8678211883"
 bot = Bot(token=TOKEN)
 
-# Aapki nayi photo yahan add kar di hai
+# Links & Assets
 WELCOME_IMG = "https://i.ibb.co/39V9V4Y3/image.jpg" 
-
 YT_LINK = "https://www.youtube.com/@USSoccerPulse"
 INSTA_LINK = "https://www.instagram.com/digital_rockstar_m"
 FB_LINK = "https://www.facebook.com/profile.php?id=61574378159053"
 AD_LINK = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
 
+# --- FIREBASE SETUP ---
 def init_fb():
     if not firebase_admin._apps:
         try:
-            key = os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n').strip().strip('"').strip("'")
+            # Private key formatting for Vercel/Environment
+            raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "")
+            if not raw_key:
+                # Agar Env Variable nahi hai toh ye fallback key use karega (Lekin Env best hai)
+                return False
+            
+            clean_key = raw_key.replace('\\n', '\n').strip().strip('"').strip("'")
+            
             cred_dict = {
                 "type": "service_account",
                 "project_id": "ultimatemediasearch",
-                "private_key_id": "571ab3737559ec758db4a017796d2134ae468163",
-                "private_key": key,
+                "private_key": clean_key,
                 "client_email": "firebase-adminsdk-fbsvc@ultimatemediasearch.iam.gserviceaccount.com",
-                "client_id": "107810087265546309339",
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40ultimatemediasearch.iam.gserviceaccount.com"
             }
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred, {'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'})
-        except: return False
+        except Exception as e:
+            print(f"Firebase Init Error: {e}")
+            return False
     return True
 
+# --- BOT WEBHOOK HANDLER ---
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if request.method == "POST":
         try:
             data = request.get_json(force=True)
-            update = Update.de_json(data, bot)
-            if update.message and update.message.text:
-                uid, u_name = str(update.message.chat_id), update.effective_user.first_name
+            if "message" in data:
+                msg_obj = data["message"]
+                chat_id = str(msg_obj["chat"]["id"])
+                u_name = msg_obj["from"].get("first_name", "User")
+                
                 init_fb()
-                user_ref = db.reference(f'users/{uid}')
-                u_data = user_ref.get()
-                
-                if not u_data:
-                    user_ref.set({"name": u_name, "pts": 10, "refs": 0, "last_ad": 0, "coupon": str(uuid.uuid4())[:8]})
-                elif "coupon" not in u_data:
-                    user_ref.update({"coupon": str(uuid.uuid4())[:8]})
+                user_ref = db.reference(f'users/{chat_id}')
+                user_data = user_ref.get()
 
-                dash_url = f"https://ultimate-media-search-bot.vercel.app/dashboard?id={uid}&name={u_name}"
-                kb = InlineKeyboardMarkup([[InlineKeyboardButton("🚀 Open Earning Dashboard", web_app=WebAppInfo(url=dash_url))]])
+                # Naya user check aur coupon generate
+                if not user_data:
+                    user_ref.set({
+                        "name": u_name,
+                        "pts": 10,
+                        "coupon": str(uuid.uuid4())[:8],
+                        "last_ad": 0
+                    })
                 
-                msg = (f"✨ *Hello {u_name}!* ✨\n\n"
-                       f"💪 *'Zindagi mein koshish karne walon ki kabhi haar nahi hoti.'*\n\n"
-                       f"🌟 Aaj se hi apni earning shuru karein!\n\n"
-                       f"📊 *Niche button par click karein.*")
+                # Dashboard Button
+                dash_url = f"https://ultimate-media-search-bot.vercel.app/dashboard?id={chat_id}&name={u_name}"
+                kb = InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🚀 Open Earning Dashboard", web_app=WebAppInfo(url=dash_url))
+                ]])
                 
-                bot.send_photo(uid, WELCOME_IMG, caption=msg, parse_mode="Markdown", reply_markup=kb)
-            return "ok", 200
-        except: return "ok", 200
-    return "Bot Active", 200
+                welcome_text = (
+                    f"✨ *Hello {u_name}!* ✨\n\n"
+                    f"💪 *'Zindagi mein koshish karne walon ki kabhi haar nahi hoti.'*\n\n"
+                    f"🌟 Aaj se hi apni earning shuru karein!\n\n"
+                    f"📊 *Niche button par click karke dashboard kholein.*"
+                )
+                
+                bot.send_photo(chat_id, WELCOME_IMG, caption=welcome_text, parse_mode="Markdown", reply_markup=kb)
+        except Exception as e:
+            print(f"Webhook Error: {e}")
+            
+    return "Bot is running", 200
 
+# --- DASHBOARD UI ---
 @app.route('/dashboard')
 def dashboard():
-    uid, name = request.args.get('id', '0'), request.args.get('name', 'User')
+    uid = request.args.get('id', '0')
+    name = request.args.get('name', 'User')
     init_fb()
-    try:
-        u_ref = db.reference(f'users/{uid}')
-        u_data = u_ref.get() or {}
-        pts, last_ad = u_data.get('pts', 0), u_data.get('last_ad', 0)
-        user_coupon = u_data.get('coupon', '...')
-        
-        msg = ""
+    
+    u_ref = db.reference(f'users/{uid}')
+    u_data = u_ref.get() or {"pts": 0, "coupon": "...", "last_ad": 0}
+    
+    # Ad Points Claim Logic
+    if request.args.get('claim_ad') == '1':
         now = time.time()
-        
-        if request.args.get('claim_ad') == '1':
-            if now - last_ad > 3600:
-                u_ref.update({"pts": pts + 10, "last_ad": now})
-                pts += 10
-                msg = "✅ Ad Success! +10 Points."
-            else: msg = "🕒 Please wait before watching next ad."
+        last_ad = u_data.get('last_ad', 0)
+        # 10 minute cooldown for testing, change 600 to 3600 for 1 hour
+        if now - last_ad > 600: 
+            u_ref.update({"pts": u_data.get('pts', 0) + 10, "last_ad": now})
+            return render_template_string("<script>alert('Points Added Successfully!'); window.location.href='/dashboard?id={{uid}}&name={{name}}';</script>", uid=uid, name=name)
+        else:
+            return render_template_string("<script>alert('Please wait before watching next ad!'); window.location.href='/dashboard?id={{uid}}&name={{name}}';</script>", uid=uid, name=name)
 
-        if request.args.get('apply_coupon'):
-            code = request.args.get('apply_coupon').strip()
-            all_users = db.reference('users').get()
-            for k, v in all_users.items():
-                if v.get('coupon') == code and k != uid:
-                    db.reference(f'users/{k}').update({"pts": v.get('pts', 0) + 5, "refs": v.get('refs', 0) + 1})
-                    u_ref.update({"pts": pts + 5})
-                    pts += 5
-                    msg = "🎁 Coupon Applied! +5 Pts."
-                    break
-
-        return render_template_string("""
-        <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
         <style>
-            body { background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding:10px; margin:0; }
-            .card { background: linear-gradient(145deg, #1e293b, #0f172a); border-radius:15px; padding:15px; border:1px solid #334155; margin-bottom:10px; }
-            .pts { font-size:40px; color:#fbbf24; font-weight:bold; }
-            .btn { background:#fbbf24; color:black; padding:10px; border-radius:10px; width:100%; border:none; font-weight:bold; cursor:pointer; }
-            .task { background:#1e293b; padding:12px; border-radius:12px; margin-top:8px; display:flex; justify-content:space-between; align-items:center; text-decoration:none; color:white; border:1px solid #334155; }
-            .icon-box { width:30px; height:30px; border-radius:5px; display:flex; align-items:center; justify-content:center; margin-right:10px; }
-            input { width:70%; padding:8px; border-radius:5px; border:1px solid #334155; background:#0f172a; color:white; }
-        </style></head>
-        <body>
-            <div class="card">
-                <p style="margin:0; opacity:0.7;">My Points</p>
-                <div class="pts">{{pts}}</div>
-                <button class="btn" style="opacity:{{'1' if pts>=100 else '0.5'}}">💳 WITHDRAW (100 MIN)</button>
+            body { background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding:15px; margin:0; }
+            .card { background: linear-gradient(145deg, #1e293b, #0f172a); border-radius:20px; padding:20px; border:1px solid #334155; margin-bottom:15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+            .pts { font-size:48px; color:#fbbf24; font-weight:bold; margin:10px 0; }
+            .btn-withdraw { background:#fbbf24; color:#000; padding:12px; border-radius:12px; width:100%; border:none; font-weight:bold; cursor:pointer; font-size:16px; }
+            .task-container { text-align:left; }
+            .task-label { font-size:12px; color:#94a3b8; font-weight:bold; margin-bottom:10px; display:block; }
+            .task { background:#1e293b; padding:15px; border-radius:15px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; text-decoration:none; color:white; border:1px solid #334155; transition: 0.3s; }
+            .task:active { transform: scale(0.98); background: #334155; }
+            .icon-box { width:35px; height:35px; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-right:12px; }
+            .coupon-box { margin-top:10px; font-size:14px; background:#334155; padding:10px; border-radius:10px; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <p style="margin:0; opacity:0.8;">Total Earnings</p>
+            <div class="pts">{{pts}}</div>
+            <button class="btn-withdraw" onclick="alert('Minimum 100 points required to withdraw!')">💳 WITHDRAW (100 MIN)</button>
+            <div class="coupon-box">🎁 Your Coupon: <b style="color:#fbbf24;">{{coupon}}</b></div>
+        </div>
+
+        <div class="task-container">
+            <span class="task-label">AVAILABLE TASKS</span>
+            
+            <a href="{{yt}}" target="_blank" class="task">
+                <div style="display:flex; align-items:center;">
+                    <div class="icon-box" style="background:#ef4444;"><i class="fab fa-youtube"></i></div>
+                    <span>Subscribe YouTube</span>
+                </div>
+                <b style="color:#fbbf24;">+5</b>
+            </a>
+
+            <a href="{{insta}}" target="_blank" class="task">
+                <div style="display:flex; align-items:center;">
+                    <div class="icon-box" style="background:#f43f5e;"><i class="fab fa-instagram"></i></div>
+                    <span>Follow Instagram</span>
+                </div>
+                <b style="color:#fbbf24;">+5</b>
+            </a>
+
+            <a href="{{fb}}" target="_blank" class="task">
+                <div style="display:flex; align-items:center;">
+                    <div class="icon-box" style="background:#3b82f6;"><i class="fab fa-facebook-f"></i></div>
+                    <span>Follow Facebook</span>
+                </div>
+                <b style="color:#fbbf24;">+5</b>
+            </a>
+
+            <div class="task" onclick="watchAd()" style="cursor:pointer;">
+                <div style="display:flex; align-items:center;">
+                    <div class="icon-box" style="background:#fbbf24; color:#000;"><i class="fas fa-play"></i></div>
+                    <span id="adText">Watch Video Ad (30s)</span>
+                </div>
+                <b id="adStatus" style="color:#fbbf24;">+10</b>
             </div>
 
-            {% if msg %}<p style="color:#fbbf24;">{{msg}}</p>{% endif %}
+            <a href="https://t.me/share/url?url=https://t.me/UltimateMediaSearchBot?start={{uid}}&text=Join and earn! Use my coupon: {{coupon}}" class="task" style="background:rgba(59,130,246,0.1); border-color:#3b82f6;">
+                <div style="display:flex; align-items:center;">
+                    <div class="icon-box" style="background:#3b82f6;"><i class="fas fa-share-alt"></i></div>
+                    <span>Share & Earn</span>
+                </div>
+                <b style="color:#fbbf24;">+5</b>
+            </a>
+        </div>
 
-            <div class="card">
-                <b>🎁 Coupon: <span style="color:#fbbf24;">{{user_coupon}}</span></b><br><br>
-                <input type="text" id="cin" placeholder="Enter Friend's Coupon">
-                <button onclick="window.location.href='/dashboard?id={{uid}}&name={{name}}&apply_coupon='+document.getElementById('cin').value" style="background:#22c55e; border:none; color:white; padding:8px 12px; border-radius:5px;">Apply</button>
-            </div>
-
-            <div style="text-align:left;">
-                <p style="font-weight:bold; color:#94a3b8; font-size:12px;">DAILY TASKS</p>
-                <a href="{{yt}}" class="task"><div style="display:flex;"><div class="icon-box" style="background:red;"><i class="fab fa-youtube"></i></div>YouTube</div><b>+5</b></a>
-                <a href="{{insta}}" class="task"><div style="display:flex;"><div class="icon-box" style="background:orange;"><i class="fab fa-instagram"></i></div>Instagram</div><b>+5</b></a>
-                <a href="{{fb}}" class="task"><div style="display:flex;"><div class="icon-box" style="background:#0668E1;"><i class="fab fa-facebook-f"></i></div>Facebook</div><b>+5</b></a>
+        <script>
+            function watchAd(){
+                window.open("{{ad_link}}", "_blank");
+                let timeLeft = 30;
+                const btn = document.getElementById('adStatus');
+                const text = document.getElementById('adText');
                 
-                <div class="task" onclick="watchAd()" style="cursor:pointer;"><div style="display:flex;"><div class="icon-box" style="background:#fbbf24; color:black;"><i class="fas fa-play"></i></div>Watch Ad (30s)</div><b id="adStatus">+10</b></div>
-                
-                <a href="https://t.me/share/url?url=https://t.me/UltimateMediaSearchBot?start={{uid}}&text=Use my coupon: {{user_coupon}} for +5 bonus!" class="task" style="background:#3b82f6;"><div style="display:flex;"><div class="icon-box" style="background:white; color:#3b82f6;"><i class="fas fa-share-alt"></i></div>Share & Earn</div><b>+5</b></a>
-            </div>
+                const timer = setInterval(() => {
+                    timeLeft--;
+                    btn.innerHTML = timeLeft + "s";
+                    text.innerHTML = "Verifying Ad...";
+                    if (timeLeft <= 0) {
+                        clearInterval(timer);
+                        window.location.href = "/dashboard?id={{uid}}&name={{name}}&claim_ad=1";
+                    }
+                }, 1000);
+            }
+        </script>
+    </body>
+    </html>
+    """, pts=u_data.get('pts',0), coupon=u_data.get('coupon','...'), uid=uid, name=name, yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, ad_link=AD_LINK)
 
-            <script>
-                function watchAd(){
-                    window.open("{{ad_link}}", "_blank");
-                    let s=30;
-                    document.getElementById('adStatus').innerHTML = "Wait "+s+"s";
-                    let t = setInterval(()=>{
-                        s--; document.getElementById('adStatus').innerHTML = "Wait "+s+"s";
-                        if(s<=0){ 
-                            clearInterval(t); 
-                            window.location.href="/dashboard?id={{uid}}&name={{name}}&claim_ad=1";
-                        }
-                    },1000);
-                }
-            </script>
-        </body></html>
-        """, pts=pts, uid=uid, name=name, yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, ad_link=AD_LINK, user_coupon=user_coupon, msg=msg)
-    except Exception as e: return str(e)
+if __name__ == "__main__":
+    app.run(debug=True)
