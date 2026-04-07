@@ -1,3 +1,4 @@
-Flask
+flask
+python-telegram-bot==20.* # Naya version, async zaroori hai
 firebase-admin
-pyTelegramBotAPI
+gunicorn
