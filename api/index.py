@@ -4,7 +4,7 @@ import uuid
 import firebase_admin
 from firebase_admin import credentials, db
 from flask import Flask, request, render_template_string
-import telebot # Humne simple 'pyTelegramBotAPI' use kiya hai fast response ke liye
+import telebot
 
 app = Flask(__name__)
 
@@ -18,13 +18,12 @@ INSTA_LINK = "https://www.instagram.com/digital_rockstar_m"
 FB_LINK = "https://www.facebook.com/profile.php?id=61574378159053"
 AD_LINK = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
 
-# --- FIREBASE ---
 def init_fb():
     if not firebase_admin._apps:
         try:
-            # TRY CATCH lagaya hai taaki agar key na mile toh bot crash na ho
             key = os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n').strip().strip('"').strip("'")
-            if not key: return False
+            if not key:
+                return False
             cred = credentials.Certificate({
                 "type": "service_account",
                 "project_id": "ultimatemediasearch",
@@ -34,43 +33,41 @@ def init_fb():
             })
             firebase_admin.initialize_app(cred, {'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'})
             return True
-        except: return False
+        except Exception as e:
+            print(f"Firebase Error: {e}")
+            return False
     return True
 
-# --- BOT HANDLERS ---
-@app.route('/api', methods=['POST']) # Path change kiya /api par
+@app.route('/api', methods=['POST'])
 def webhook():
     if request.headers.get('content-type') == 'application/json':
         json_string = request.get_data().decode('utf-8')
         update = telebot.types.Update.de_json(json_string)
         bot.process_new_updates([update])
         return "!", 200
-    return "Error", 403
+    return "Forbidden", 403
 
 @bot.message_handler(commands=['start'])
-def start(message):
+def start_cmd(message):
     uid = str(message.chat.id)
     name = message.from_user.first_name
-    
     init_fb()
     try:
-        user_ref = db.reference(f'users/{uid}')
-        if not user_ref.get():
-            user_ref.set({"name": name, "pts": 10, "coupon": str(uuid.uuid4())[:8], "last_ad": 0})
+        u_ref = db.reference(f'users/{uid}')
+        if not u_ref.get():
+            u_ref.set({"name": name, "pts": 10, "coupon": str(uuid.uuid4())[:8], "last_ad": 0})
     except: pass
 
-    # WEB APP BUTTON
     markup = telebot.types.InlineKeyboardMarkup()
-    dash_url = f"https://ultimate-media-search-bot.vercel.app/dashboard?id={uid}&name={name}"
+    dash_url = f"https://{request.host}/dashboard?id={uid}&name={name}"
     markup.add(telebot.types.InlineKeyboardButton("🚀 Open Earning Dashboard", web_app=telebot.types.WebAppInfo(url=dash_url)))
     
-    caption = f"✨ *Hello {name}!* ✨\n\n💪 'Zindagi mein koshish karne walon ki kabhi haar nahi hoti.'\n\n📊 Niche button par click karke earning shuru karein!"
-    bot.send_photo(uid, WELCOME_IMG, caption=caption, parse_mode="Markdown", reply_markup=markup)
+    bot.send_photo(uid, WELCOME_IMG, caption=f"✨ *Hello {name}!*\n\nNiche button se Dashboard kholein.", parse_mode="Markdown", reply_markup=markup)
 
-# --- DASHBOARD ---
 @app.route('/dashboard')
 def dashboard():
     uid = request.args.get('id', '0')
+    name = request.args.get('name', 'User')
     init_fb()
     try:
         u_ref = db.reference(f'users/{uid}')
@@ -79,7 +76,7 @@ def dashboard():
 
     if request.args.get('claim_ad') == '1':
         db.reference(f'users/{uid}').update({"pts": u_data.get('pts', 0) + 10, "last_ad": time.time()})
-        return render_template_string("<script>alert('Points Added!'); window.location.href='/dashboard?id={{uid}}';</script>", uid=uid)
+        return render_template_string("<script>alert('Points Added!'); window.location.href='/dashboard?id={{uid}}&name={{name}}';</script>", uid=uid, name=name)
 
     return render_template_string("""
     <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -99,7 +96,7 @@ def dashboard():
             <a href="{{yt}}" class="task"><span><i class="fab fa-youtube" style="color:red;"></i> YouTube</span><b>+5</b></a>
             <a href="{{insta}}" class="task"><span><i class="fab fa-instagram" style="color:#e1306c;"></i> Instagram</span><b>+5</b></a>
             <a href="{{fb}}" class="task"><span><i class="fab fa-facebook" style="color:#1877f2;"></i> Facebook</span><b>+5</b></a>
-            <div class="task" onclick="watchAd()" style="cursor:pointer;"><span><i class="fas fa-play" style="color:#fbbf24;"></i> Watch Ad (30s)</span><b id="adStatus">+10</b></div>
+            <div class="task" onclick="watchAd()" style="cursor:pointer;"><span><i class="fas fa-play" style="color:#fbbf24;"></i> Watch Ad</span><b id="adStatus">+10</b></div>
         </div>
         <script>
             function watchAd(){
@@ -107,12 +104,12 @@ def dashboard():
                 let s=30;
                 let t = setInterval(()=>{
                     s--; document.getElementById('adStatus').innerHTML = s+"s";
-                    if(s<=0){ clearInterval(t); window.location.href="/dashboard?id={{uid}}&claim_ad=1"; }
+                    if(s<=0){ clearInterval(t); window.location.href="/dashboard?id={{uid}}&name={{name}}&claim_ad=1"; }
                 },1000);
             }
         </script>
     </body></html>
-    """, pts=u_data.get('pts',0), coupon=u_data.get('coupon','...'), uid=uid, yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, ad_link=AD_LINK)
+    """, pts=u_data.get('pts',0), coupon=u_data.get('coupon','...'), uid=uid, name=name, yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, ad_link=AD_LINK)
 
 @app.route('/')
-def index(): return "Bot is Active"
+def home(): return "Bot Active"
