@@ -17,47 +17,48 @@ AD_LINK = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea7
 MOTIVATION = "\n\n🚀 *Mehnat rang layegi! Paisa hi paisa hoga!*"
 
 # --- FIREBASE INITIALIZATION ---
-if not firebase_admin._apps:
-    try:
-        # Private key clean up logic
-        raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n').strip().strip('"').strip("'")
-        
-        # Complete Firebase Dictionary (Zaroori hai verna crash hoga)
-        firebase_config = {
-            "type": "service_account",
-            "project_id": "ultimatemediasearch",
-            "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
-            "private_key": raw_key,
-            "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
-            "client_id": os.getenv("FIREBASE_CLIENT_ID"),
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL")
-        }
-        
-        cred = credentials.Certificate(firebase_config)
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'
-        })
-    except Exception as e:
-        print(f"Firebase Error: {e}")
+def init_firebase():
+    if not firebase_admin._apps:
+        try:
+            raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n').strip().strip('"').strip("'")
+            
+            firebase_config = {
+                "type": "service_account",
+                "project_id": os.getenv("FIREBASE_PROJECT_ID", "ultimatemediasearch"),
+                "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
+                "private_key": raw_key,
+                "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
+                "client_id": os.getenv("FIREBASE_CLIENT_ID"),
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL")
+            }
+            
+            cred = credentials.Certificate(firebase_config)
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'
+            })
+            return True
+        except Exception as e:
+            print(f"Firebase Init Error: {e}")
+            return False
+    return True
 
 TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 
-# --- BOT LOGIC ---
+# --- BOT MAIN LOGIC ---
 @app.route('/', methods=['GET', 'POST'])
 def webhook():
     if request.method == "POST":
         try:
-            # Update handle karne ka sahi tarika
+            if not init_firebase(): return "Firebase Down", 200
+            
             update_data = request.get_json(force=True)
             update = Update.de_json(update_data, bot)
-            
             if not update: return "ok", 200
 
-            # Message Handling
             if update.message:
                 chat_id = str(update.message.chat_id)
                 user_ref = db.reference(f'users/{chat_id}')
@@ -69,19 +70,15 @@ def webhook():
                         # Referral logic
                         args = update.message.text.split()
                         ref_by = args[1] if len(args) > 1 else None
-                        
                         if ref_by and ref_by != chat_id:
                             r_ref = db.reference(f'users/{ref_by}')
                             r_data = r_ref.get()
                             if r_data:
-                                r_ref.update({
-                                    "pts": r_data.get('pts', 0) + 15,
-                                    "refs": r_data.get('refs', 0) + 1
-                                })
+                                r_ref.update({"pts": r_data.get('pts', 0) + 15, "refs": r_data.get('refs', 0) + 1})
                         
                         user_ref.set({"pts": 10, "refs": 0, "last_ad": 0, "soc_done": False})
 
-                    # Keyboard & Buttons
+                    # Professional Menu & Buttons
                     menu = ReplyKeyboardMarkup([[KeyboardButton("📊 Dashboard", web_app=WebAppInfo(url=dashboard_url))]], resize_keyboard=True)
                     kb = InlineKeyboardMarkup([
                         [InlineKeyboardButton("📺 Watch Ad (5 pts)", url=AD_LINK)],
@@ -93,9 +90,8 @@ def webhook():
                     ])
 
                     bot.send_photo(chat_id, WELCOME_IMG, caption="💎 *EARNPRO OFFICIAL* 💎" + MOTIVATION, reply_markup=kb, parse_mode="Markdown")
-                    bot.send_message(chat_id, "Niche 'Dashboard' button se earning check karein 👇", reply_markup=menu)
+                    bot.send_message(chat_id, "Niche 'Dashboard' button se apni earning check karein 👇", reply_markup=menu)
 
-            # Callback Handling
             elif update.callback_query:
                 query = update.callback_query
                 chat_id = str(query.message.chat_id)
@@ -113,38 +109,41 @@ def webhook():
                 elif query.data == "claim_soc":
                     if not data.get('soc_done'):
                         user_ref.update({"pts": data.get('pts', 0) + 15, "soc_done": True})
-                        query.answer("🎉 15 Points added!", show_alert=True)
+                        query.answer("🎉 15 Points added for Social Tasks!", show_alert=True)
                     else:
                         query.answer("❌ Already claimed!", show_alert=True)
 
                 elif query.data == "invite":
-                    bot_info = bot.get_me()
-                    link = f"https://t.me/{bot_info.username}?start={chat_id}"
-                    bot.send_message(chat_id, f"🎁 *INVITE LINK*\n\n`{link}`", parse_mode="Markdown")
+                    bot_user = bot.get_me()
+                    link = f"https://t.me/{bot_user.username}?start={chat_id}"
+                    bot.send_message(chat_id, f"🎁 *INVITE LINK*\nShare karo aur 15 points kamao:\n\n`{link}`", parse_mode="Markdown")
 
             return "ok", 200
         except Exception as e:
-            print(f"Webhook Error: {e}")
-            return "error", 200 # Vercel ko error nahi, 200 bhejte hain taaki Telegram retry na kare
+            print(f"Error: {e}")
+            return "ok", 200
     
     return "<h1>Bot is Active!</h1>"
 
+# --- WEB DASHBOARD ---
 @app.route('/dashboard')
 def dashboard():
-    uid = request.args.get('id', 'Unknown')
+    uid = request.args.get('id')
+    if not init_firebase(): return "Database Error"
     u = db.reference(f'users/{uid}').get() or {"pts": 0, "refs": 0}
     return render_template_string("""
     <!DOCTYPE html>
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { background: #0b0e14; color: white; font-family: sans-serif; text-align: center; padding: 20px; }
-        .card { background: #161b22; border-radius: 20px; padding: 30px; border: 1px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        body { background: #0b0e14; color: white; font-family: sans-serif; text-align: center; padding: 20px; margin:0; }
+        .card { background: #161b22; border-radius: 20px; padding: 30px; border: 1px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-top:10px; }
         h1 { font-size: 50px; color: #fbbf24; margin: 10px 0; }
-        .btn { background: #2563eb; color: white; border: none; padding: 12px; width: 100%; border-radius: 12px; font-weight: bold; margin-top: 20px; text-decoration:none; display:block; }
+        .btn { background: #2563eb; color: white; border: none; padding: 12px; width: 100%; border-radius: 12px; font-weight: bold; margin-top: 20px; text-decoration:none; display:inline-block; }
         .stat { display: flex; justify-content: space-around; margin: 20px 0; }
-    </small></style></head>
+        .badge { font-size: 14px; background: #2563eb; display: inline-block; padding: 5px 15px; border-radius: 10px; margin-bottom: 10px; }
+    </style></head>
     <body>
-        <div style="font-size: 14px; background: #2563eb; display: inline-block; padding: 5px 15px; border-radius: 10px; margin-bottom: 20px;">EARNPRO</div>
+        <div class="badge">EARNPRO v2.0</div>
         <div class="card">
             <p style="color: #8b949e;">AVAILABLE BALANCE</p>
             <h1>{{u.pts}}.00</h1>
@@ -156,10 +155,7 @@ def dashboard():
         <div style="margin-top:20px; border: 1px dashed #2563eb; padding: 15px; border-radius: 15px;">
             <small style="color: #8b949e;">INVITE CODE</small>
             <h2 style="color: #2563eb; letter-spacing: 2px;">EP-{{uid[:6]}}</h2>
-            <a href="https://api.whatsapp.com/send?text=Join%20this%20bot%20to%20earn!" class="btn">SHARE ON WHATSAPP (+15)</a>
+            <a href="https://t.me/share/url?url=https://t.me/{{bot_name}}?start={{uid}}&text=Join%20and%20Earn%20Daily!" class="btn">SHARE ON TELEGRAM (+15)</a>
         </div>
     </body></html>
-    """, u=u, uid=uid)
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    """, u=u, uid=uid, bot_name=bot.get_me().username)
