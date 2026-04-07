@@ -12,18 +12,19 @@ app = Flask(__name__)
 TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
+# Links
 WELCOME_IMG = "https://i.ibb.co/39V9V4Y3/image.jpg" 
 YT_LINK = "https://www.youtube.com/@USSoccerPulse"
 INSTA_LINK = "https://www.instagram.com/digital_rockstar_m"
 FB_LINK = "https://www.facebook.com/profile.php?id=61574378159053"
 AD_LINK = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
 
-def init_fb():
+# --- FIREBASE INITIALIZATION ---
+def get_firebase():
     if not firebase_admin._apps:
-        try:
-            key = os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n').strip().strip('"').strip("'")
-            if not key:
-                return False
+        # Key ko handle karne ka sabse safe tarika
+        key = os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n').strip().strip('"').strip("'")
+        if key:
             cred = credentials.Certificate({
                 "type": "service_account",
                 "project_id": "ultimatemediasearch",
@@ -32,12 +33,9 @@ def init_fb():
                 "token_uri": "https://oauth2.googleapis.com/token",
             })
             firebase_admin.initialize_app(cred, {'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'})
-            return True
-        except Exception as e:
-            print(f"Firebase Error: {e}")
-            return False
     return True
 
+# --- BOT ROUTES ---
 @app.route('/api', methods=['POST'])
 def webhook():
     if request.headers.get('content-type') == 'application/json':
@@ -48,35 +46,44 @@ def webhook():
     return "Forbidden", 403
 
 @bot.message_handler(commands=['start'])
-def start_cmd(message):
+def handle_start(message):
     uid = str(message.chat.id)
     name = message.from_user.first_name
-    init_fb()
+    
     try:
+        get_firebase()
         u_ref = db.reference(f'users/{uid}')
         if not u_ref.get():
             u_ref.set({"name": name, "pts": 10, "coupon": str(uuid.uuid4())[:8], "last_ad": 0})
-    except: pass
+    except Exception as e:
+        print(f"DB Error: {e}")
 
+    # Dashboard Button
     markup = telebot.types.InlineKeyboardMarkup()
-    dash_url = f"https://{request.host}/dashboard?id={uid}&name={name}"
+    dash_url = f"https://ultimate-media-search-bot.vercel.app/dashboard?id={uid}&name={name}"
     markup.add(telebot.types.InlineKeyboardButton("🚀 Open Earning Dashboard", web_app=telebot.types.WebAppInfo(url=dash_url)))
     
-    bot.send_photo(uid, WELCOME_IMG, caption=f"✨ *Hello {name}!*\n\nNiche button se Dashboard kholein.", parse_mode="Markdown", reply_markup=markup)
+    caption = f"✨ *Hello {name}!* ✨\n\n'Zindagi mein koshish karne walon ki kabhi haar nahi hoti.'\n\n📊 Niche button par click karke earning shuru karein!"
+    bot.send_photo(uid, WELCOME_IMG, caption=caption, parse_mode="Markdown", reply_markup=markup)
 
+# --- DASHBOARD ROUTES ---
 @app.route('/dashboard')
 def dashboard():
     uid = request.args.get('id', '0')
     name = request.args.get('name', 'User')
-    init_fb()
+    
     try:
+        get_firebase()
         u_ref = db.reference(f'users/{uid}')
-        u_data = u_ref.get() or {"pts":0, "coupon":"..."}
-    except: u_data = {"pts":0, "coupon":"Error"}
+        data = u_ref.get() or {"pts": 0, "coupon": "...", "last_ad": 0}
+    except:
+        data = {"pts": 0, "coupon": "Error", "last_ad": 0}
 
+    # Ad claim logic
     if request.args.get('claim_ad') == '1':
-        db.reference(f'users/{uid}').update({"pts": u_data.get('pts', 0) + 10, "last_ad": time.time()})
-        return render_template_string("<script>alert('Points Added!'); window.location.href='/dashboard?id={{uid}}&name={{name}}';</script>", uid=uid, name=name)
+        new_pts = data.get('pts', 0) + 10
+        db.reference(f'users/{uid}').update({"pts": new_pts, "last_ad": time.time()})
+        return render_template_string("<script>alert('10 Points Added!'); window.location.href='/dashboard?id={{uid}}&name={{name}}';</script>", uid=uid, name=name)
 
     return render_template_string("""
     <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -109,7 +116,8 @@ def dashboard():
             }
         </script>
     </body></html>
-    """, pts=u_data.get('pts',0), coupon=u_data.get('coupon','...'), uid=uid, name=name, yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, ad_link=AD_LINK)
+    """, pts=data.get('pts',0), coupon=data.get('coupon','...'), uid=uid, name=name, yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, ad_link=AD_LINK)
 
 @app.route('/')
-def home(): return "Bot Active"
+def index():
+    return "Bot is Active", 200
