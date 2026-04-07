@@ -1,4 +1,3 @@
 flask
-python-telegram-bot==20.* # Naya version, async zaroori hai
+python-telegram-bot==20.3
 firebase-admin
-gunicorn
