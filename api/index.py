@@ -7,8 +7,8 @@ from telegram import Update, Bot, ReplyKeyboardMarkup, KeyboardButton, WebAppInf
 
 app = Flask(__name__)
 
-# --- CONFIG ---
-TOKEN = os.getenv("BOT_TOKEN")
+# --- BOT CONFIG ---
+TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
 ADMIN_ID = "8678211883" 
 bot = Bot(token=TOKEN)
 
@@ -20,15 +20,17 @@ FB_LINK = "https://www.facebook.com/profile.php?id=61574378159053"
 def init_fb():
     if not firebase_admin._apps:
         try:
-            # Cleaning the Private Key (Very Important for Vercel)
-            raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n').strip().strip('"').strip("'")
+            # Formatting Private Key to handle Vercel's newline issue
+            p_key = os.getenv("FIREBASE_PRIVATE_KEY", "")
+            if "\\n" in p_key:
+                p_key = p_key.replace("\\n", "\n")
             
-            # Structuring the Credentials
-            cert_config = {
+            # Manual dictionary construction to avoid hidden character issues
+            service_account_info = {
                 "type": "service_account",
                 "project_id": os.getenv("FIREBASE_PROJECT_ID"),
                 "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
-                "private_key": raw_key,
+                "private_key": p_key.strip().strip('"').strip("'"),
                 "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
                 "client_id": os.getenv("FIREBASE_CLIENT_ID"),
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -37,13 +39,13 @@ def init_fb():
                 "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL")
             }
             
-            cred = credentials.Certificate(cert_config)
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': f'https://{os.getenv("FIREBASE_PROJECT_ID")}-default-rtdb.asia-southeast1.firebasedatabase.app/'
-            })
+            cred = credentials.Certificate(service_account_info)
+            # Hardcoded Database URL for your specific project
+            db_url = "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/"
+            firebase_admin.initialize_app(cred, {'databaseURL': db_url})
             return True
         except Exception as e:
-            print(f"Init Error: {e}")
+            print(f"Firebase Init Error: {e}")
             return False
     return True
 
@@ -57,83 +59,85 @@ def webhook():
                 uid = str(update.message.chat_id)
                 u_name = update.effective_user.first_name
                 
-                if init_fb():
-                    user_ref = db.reference(f'users/{uid}')
-                    if not user_ref.get():
-                        user_ref.set({"name": u_name, "pts": 10, "refs": 0, "last_ad": 0})
+                init_fb() # Start Firebase
+                user_ref = db.reference(f'users/{uid}')
+                if not user_ref.get():
+                    user_ref.set({"name": u_name, "pts": 10, "refs": 0, "last_ad": 0})
 
                 dash_url = f"https://{request.host}/dashboard?id={uid}&name={u_name}"
-                kb = ReplyKeyboardMarkup([[KeyboardButton("📊 My Dashboard", web_app=WebAppInfo(url=dash_url))]], resize_keyboard=True)
+                kb = ReplyKeyboardMarkup([[KeyboardButton("📊 Open Dashboard", web_app=WebAppInfo(url=dash_url))]], resize_keyboard=True)
                 
-                msg = (f"✨ *Assalam-o-Alaikum, {u_name}!* ✨\n\n"
-                       f"🚀 *'Hausle buland kar, manzil tere kareeb hai.'*\n\n"
-                       f"Dashboard open karein aur apna gift claim karein!")
-                
+                msg = f"🌟 *Aadab {u_name}!*\n\nAapka account active ho gaya hai. Dashboard se earning shuru karein!"
                 bot.send_photo(uid, WELCOME_IMG, caption=msg, parse_mode="Markdown", reply_markup=kb)
             return "ok", 200
-        except: return "ok", 200
-    return "Bot Online", 200
+        except Exception as e:
+            return str(e), 200
+    return "<h1>Bot Engine is Running</h1>", 200
 
 @app.route('/dashboard')
 def dashboard():
     uid = request.args.get('id', '0')
     name = request.args.get('name', 'User')
     
-    # Check if Firebase Connected
     if not init_fb():
-        return "<h3>⚠️ Configuration Error: Please check your Firebase Keys in Vercel.</h3>"
+        return "<h3>❌ Configuration Error: Firebase keys mismatch. Check Vercel Env Vars.</h3>"
 
     try:
         u_ref = db.reference(f'users/{uid}')
         u_data = u_ref.get() or {"pts": 0, "refs": 0, "last_ad": 0}
         
         msg = ""
-        # Ad Timer Logic
         if request.args.get('ad') == '1':
             now = time.time()
             if now - u_data.get('last_ad', 0) > 86400:
                 u_ref.update({"pts": u_data['pts'] + 15, "last_ad": now})
-                msg = "✅ Points Earned!"
+                msg = "✅ Bonus: +15 Points added!"
                 u_data = u_ref.get()
             else:
-                msg = "🕒 Wait for 24 hours!"
+                msg = "🕒 Security: Only 1 Ad allowed per 24 hours."
 
         return render_template_string("""
         <!DOCTYPE html>
         <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-            body { background: #0b0e14; color: white; font-family: sans-serif; text-align: center; padding: 15px; }
-            .card { background: #161b22; border-radius: 20px; padding: 20px; border: 1px solid #30363d; margin-bottom: 15px; }
-            .pts { font-size: 40px; color: #fbbf24; font-weight: bold; }
-            .btn { background: #fbbf24; color: black; padding: 12px; border-radius: 10px; width: 100%; border: none; font-weight: bold; margin-top: 10px; cursor: pointer; display:block; text-decoration:none;}
-            .task { background: #21262d; padding: 12px; border-radius: 10px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: white; border: 1px solid #30363d; }
+            body { background: #0d1117; color: white; font-family: -apple-system, sans-serif; text-align: center; padding: 15px; }
+            .card { background: #161b22; border: 1px solid #30363d; border-radius: 15px; padding: 25px; margin-bottom: 20px; }
+            .pts { font-size: 45px; color: #f2bc1b; font-weight: bold; margin: 10px 0; }
+            .btn { background: #f2bc1b; color: black; padding: 14px; border-radius: 10px; width: 100%; border: none; font-weight: bold; cursor: pointer; text-decoration: none; display: block; margin-top: 10px; }
+            .task { background: #21262d; border: 1px solid #30363d; padding: 15px; border-radius: 12px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; color: white; text-decoration: none; }
+            .badge { background: #238636; padding: 4px 10px; border-radius: 5px; font-size: 12px; }
         </style></head>
         <body>
             <div class="card">
-                <p style="opacity:0.6;">Wallet Balance</p>
-                <div class="pts">{{pts}} pts</div>
-                <p>Referrals: <b>{{refs}}</b></p>
-                <a href="#" class="btn" onclick="alert('Withdraw logic working!')">💳 CLAIM MONEY</a>
+                <p style="margin:0; opacity:0.7;">Current Balance</p>
+                <div class="pts">{{pts}}</div>
+                <p>Total Referrals: {{refs}}</p>
+                <a href="#" class="btn" onclick="alert('Minimum withdrawal: 1000 pts')">💰 WITHDRAWAL</a>
             </div>
-            {% if msg %}<p style="color:#fbbf24;">{{msg}}</p>{% endif %}
+            {% if msg %}<p style="color:#f2bc1b;">{{msg}}</p>{% endif %}
             <div style="text-align:left;">
-                <b>🚀 TASKS</b>
-                <a href="{{yt}}" target="_blank" class="task"><span>YouTube Subscribe</span> <b style="color:#238636;">GO</b></a>
-                <a href="{{insta}}" target="_blank" class="task"><span>Instagram Follow</span> <b style="color:#238636;">GO</b></a>
-                <a href="{{fb}}" target="_blank" class="task"><span>Facebook Page</span> <b style="color:#238636;">GO</b></a>
-                <div class="task" onclick="startAd()" style="cursor:pointer;"><span id="adT">Watch Ad (30s)</span> <b style="color:#fbbf24;">START</b></div>
+                <p style="color:#8b949e; font-weight:bold; margin-left:5px;">EARNING TASKS</p>
+                <a href="{{yt}}" target="_blank" class="task"><span>Subscribe YouTube</span> <span class="badge">OPEN</span></a>
+                <a href="{{insta}}" target="_blank" class="task"><span>Follow Instagram</span> <span class="badge">OPEN</span></a>
+                <a href="{{fb}}" target="_blank" class="task"><span>Like Facebook</span> <span class="badge">OPEN</span></a>
+                <div class="task" id="adBox" onclick="startTimer()" style="cursor:pointer;">
+                    <span id="timerText">Watch Video (30s)</span> <span class="badge" style="background:#f2bc1b; color:black;">START</span>
+                </div>
             </div>
             <script>
-                function startAd() {
-                    let s = 30; let btn = document.getElementById('adT');
-                    btn.parentElement.style.pointerEvents = "none";
+                function startTimer() {
+                    let s = 30; let text = document.getElementById('timerText');
+                    document.getElementById('adBox').style.pointerEvents = "none";
                     let t = setInterval(() => {
-                        btn.innerHTML = "Security Check: " + s + "s"; s--;
-                        if(s<0){ clearInterval(t); window.location.href="/dashboard?id={{uid}}&name={{name}}&ad=1"; }
+                        text.innerHTML = "Processing: " + s + "s"; s--;
+                        if(s < 0) {
+                            clearInterval(t);
+                            window.location.href = "/dashboard?id={{uid}}&name={{name}}&ad=1";
+                        }
                     }, 1000);
                 }
             </script>
         </body></html>
         """, pts=u_data['pts'], refs=u_data['refs'], uid=uid, name=name, yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, msg=msg)
     except Exception as e:
-        return f"Database Error: {str(e)}"
+        return f"<h3>Database Error:</h3><p>{str(e)}</p>"
