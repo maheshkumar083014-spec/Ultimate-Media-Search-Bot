@@ -19,7 +19,6 @@ INSTA_LINK = "https://www.instagram.com/digital_rockstar_m"
 FB_LINK = "https://www.facebook.com/profile.php?id=61574378159053"
 AD_LINK = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
 
-# Firebase Setup
 def init_fb():
     if not firebase_admin._apps:
         try:
@@ -34,24 +33,27 @@ def init_fb():
             firebase_admin.initialize_app(cred, {'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'})
         except: pass
 
-# --- TELEGRAM WEBHOOK HANDLER ---
+# --- TELEGRAM WEBHOOK (Fixing Welcome SMS) ---
 @app.route('/api', methods=['POST'])
 def webhook():
     if request.method == 'POST':
-        update = telebot.types.Update.de_json(request.get_data().decode('utf-8'))
-        bot.process_new_updates([update])
+        try:
+            json_string = request.get_data().decode('utf-8')
+            update = telebot.types.Update.de_json(json_string)
+            bot.process_new_updates([update])
+        except Exception as e:
+            print(f"Error: {e}")
         return "!", 200
     return "Bot Online", 200
 
-# --- START COMMAND (WELCOME MESSAGE) ---
+# --- WELCOME MESSAGE COMMAND ---
 @bot.message_handler(commands=['start'])
 def start(message):
     uid, name = str(message.chat.id), message.from_user.first_name
     init_fb()
     try:
         u_ref = db.reference(f'users/{uid}')
-        user = u_ref.get()
-        if not user:
+        if not u_ref.get():
             u_ref.set({"name": name, "pts": 10, "coupon": str(uuid.uuid4())[:8]})
     except: pass
 
@@ -59,10 +61,15 @@ def start(message):
     dash_url = f"https://ultimate-media-search-bot.vercel.app/dashboard?id={uid}&name={name}"
     kb.add(telebot.types.InlineKeyboardButton("🚀 Open Earning Dashboard", web_app=telebot.types.WebAppInfo(url=dash_url)))
     
-    caption = f"✨ *Hello {name}!* ✨\n\n'Zindagi mein koshish karne walon ki kabhi haar nahi hoti.'\n\nAaj se hi apni earning shuru karein!\n\n📊 Niche button par click karke dashboard kholein."
+    caption = (
+        f"✨ *Hello {name}!* ✨\n\n"
+        f"💪 'Zindagi mein koshish karne walon ki kabhi haar nahi hoti.'\n\n"
+        f"🌟 *Aaj se hi apni earning shuru karein!*\n\n"
+        f"📊 *Niche button par click karein.*"
+    )
     bot.send_photo(uid, WELCOME_IMG, caption=caption, parse_mode="Markdown", reply_markup=kb)
 
-# --- EARNING DASHBOARD VIEW ---
+# --- DASHBOARD (Aapka Pasandeeda Design) ---
 @app.route('/dashboard')
 def dashboard():
     uid, name = request.args.get('id', '0'), request.args.get('name', 'User')
@@ -80,7 +87,6 @@ def dashboard():
         .pts { font-size:50px; color:#fbbf24; font-weight:bold; }
         .btn-withdraw { background:#856404; color:#facc15; padding:12px; border-radius:12px; width:100%; border:none; font-weight:bold; margin-bottom:10px; }
         .task { background:#1e293b; padding:15px; border-radius:15px; margin-bottom:10px; display:flex; justify-content:space-between; text-decoration:none; color:white; border:1px solid #334155; align-items:center; }
-        .icon-box { width:35px; height:35px; border-radius:8px; display:flex; align-items:center; justify-content:center; }
     </style></head>
     <body>
         <div class="card">
@@ -100,4 +106,4 @@ def dashboard():
     """, pts=u_data.get('pts',0), coupon=u_data.get('coupon','...'), yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, ad=AD_LINK, uid=uid)
 
 @app.route('/')
-def home(): return "Active", 200
+def home(): return "Bot is Running", 200
