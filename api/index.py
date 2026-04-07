@@ -31,32 +31,29 @@ def init_fb():
                 "token_uri": "https://oauth2.googleapis.com/token",
             })
             firebase_admin.initialize_app(cred, {'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'})
-        except: pass
-
-# --- TELEGRAM WEBHOOK (Fixing Welcome SMS) ---
-@app.route('/api', methods=['POST'])
-def webhook():
-    if request.method == 'POST':
-        try:
-            json_string = request.get_data().decode('utf-8')
-            update = telebot.types.Update.de_json(json_string)
-            bot.process_new_updates([update])
         except Exception as e:
-            print(f"Error: {e}")
-        return "!", 200
-    return "Bot Online", 200
+            print(f"Firebase Error: {e}")
 
-# --- WELCOME MESSAGE COMMAND ---
+# --- WELCOME MESSAGE HANDLER ---
 @bot.message_handler(commands=['start'])
-def start(message):
-    uid, name = str(message.chat.id), message.from_user.first_name
+def start_command(message):
+    uid = str(message.chat.id)
+    name = message.from_user.first_name or "User"
+    
     init_fb()
+    # User data check/save in Firebase
     try:
         u_ref = db.reference(f'users/{uid}')
         if not u_ref.get():
-            u_ref.set({"name": name, "pts": 10, "coupon": str(uuid.uuid4())[:8]})
+            u_ref.set({
+                "name": name, 
+                "pts": 10, 
+                "coupon": str(uuid.uuid4())[:8],
+                "joined": time.time()
+            })
     except: pass
 
+    # Inline Keyboard with WebApp Link
     kb = telebot.types.InlineKeyboardMarkup()
     dash_url = f"https://ultimate-media-search-bot.vercel.app/dashboard?id={uid}&name={name}"
     kb.add(telebot.types.InlineKeyboardButton("🚀 Open Earning Dashboard", web_app=telebot.types.WebAppInfo(url=dash_url)))
@@ -65,17 +62,33 @@ def start(message):
         f"✨ *Hello {name}!* ✨\n\n"
         f"💪 'Zindagi mein koshish karne walon ki kabhi haar nahi hoti.'\n\n"
         f"🌟 *Aaj se hi apni earning shuru karein!*\n\n"
-        f"📊 *Niche button par click karein.*"
+        f"📊 *Niche button par click karke dashboard kholein.*"
     )
-    bot.send_photo(uid, WELCOME_IMG, caption=caption, parse_mode="Markdown", reply_markup=kb)
+    
+    try:
+        bot.send_photo(uid, WELCOME_IMG, caption=caption, parse_mode="Markdown", reply_markup=kb)
+    except:
+        bot.send_message(uid, caption, parse_mode="Markdown", reply_markup=kb)
 
-# --- DASHBOARD (Aapka Pasandeeda Design) ---
+# --- TELEGRAM WEBHOOK API ---
+@app.route('/api', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return "!", 200
+    else:
+        return "Invalid Request", 403
+
+# --- DASHBOARD HTML ---
 @app.route('/dashboard')
 def dashboard():
-    uid, name = request.args.get('id', '0'), request.args.get('name', 'User')
+    uid = request.args.get('id', '0')
+    name = request.args.get('name', 'User')
     init_fb()
     try:
-        u_data = db.reference(f'users/{uid}').get() or {"pts":0, "coupon":"..."}
+        u_data = db.reference(f'users/{uid}').get() or {"pts":0, "coupon":"N/A"}
     except: u_data = {"pts":0, "coupon":"Error"}
 
     return render_template_string("""
@@ -85,8 +98,9 @@ def dashboard():
         body { background:#0f172a; color:white; font-family:sans-serif; text-align:center; padding:15px; margin:0; }
         .card { background:rgba(30, 41, 59, 0.7); border-radius:20px; padding:20px; border:1px solid #334155; margin-bottom:20px; }
         .pts { font-size:50px; color:#fbbf24; font-weight:bold; }
-        .btn-withdraw { background:#856404; color:#facc15; padding:12px; border-radius:12px; width:100%; border:none; font-weight:bold; margin-bottom:10px; }
+        .btn-withdraw { background:#856404; color:#facc15; padding:12px; border-radius:12px; width:100%; border:none; font-weight:bold; margin-bottom:10px; cursor:pointer; }
         .task { background:#1e293b; padding:15px; border-radius:15px; margin-bottom:10px; display:flex; justify-content:space-between; text-decoration:none; color:white; border:1px solid #334155; align-items:center; }
+        b { color:#fbbf24; }
     </style></head>
     <body>
         <div class="card">
@@ -106,4 +120,7 @@ def dashboard():
     """, pts=u_data.get('pts',0), coupon=u_data.get('coupon','...'), yt=YT_LINK, insta=INSTA_LINK, fb=FB_LINK, ad=AD_LINK, uid=uid)
 
 @app.route('/')
-def home(): return "Bot is Running", 200
+def home(): return "Bot is Online and Ready!", 200
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
