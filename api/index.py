@@ -1,71 +1,77 @@
 import os
 import json
 import asyncio
-import traceback
 from flask import Flask, request
 import firebase_admin
 from firebase_admin import credentials, db
-from telegram import Update, Bot
+from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 app = Flask(__name__)
 
 # --- CONFIG ---
 TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
 FB_URL = "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/"
+PHOTO_URL = "https://i.ibb.co/3ykYmS7/user-photo.jpg"
+
 bot = Bot(token=TOKEN)
 
-def init_firebase():
-    firebase_config_env = os.getenv("FIREBASE_CONFIG_JSON")
-    if not firebase_config_env:
-        return "ERROR: FIREBASE_CONFIG_JSON missing in Vercel Env Variables"
-    
+# Firebase Initialize
+def init_fb():
     if not firebase_admin._apps:
-        try:
-            config_dict = json.loads(firebase_config_env)
-            cred = credentials.Certificate(config_dict)
+        fb_json = os.getenv("FIREBASE_CONFIG_JSON")
+        if fb_json:
+            cred = credentials.Certificate(json.loads(fb_json))
             firebase_admin.initialize_app(cred, {"databaseURL": FB_URL})
-            return "Firebase Init Success"
-        except Exception as e:
-            return f"Firebase Init Failed: {str(e)}"
-    return "Firebase already active"
 
-async def debug_handler(update: Update):
-    try:
-        # Firebase check
-        fb_status = init_firebase()
+# Main Keyboard
+def main_menu():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📊 My Dashboard", callback_data='db')],
+        [InlineKeyboardButton("📺 Watch Ads & Earn", url="https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b")],
+        [InlineKeyboardButton("💰 Withdraw", callback_data='wd')],
+        [InlineKeyboardButton("📱 Social Media", callback_data='sm')]
+    ])
+
+async def handle_update(update: Update):
+    init_fb()
+    if update.message and update.message.text == "/start":
+        user = update.effective_user
+        ref = db.reference(f"users/{user.id}")
+        if not ref.get():
+            ref.set({"name": user.full_name, "balance": 0.0, "tasks": 0})
         
-        user_name = update.effective_user.first_name
-        chat_id = update.effective_chat.id
-        
-        # Ek simple message bhej kar check karte hain
-        await bot.send_message(
-            chat_id=chat_id,
-            text=f"✅ Bot Connection OK!\n\n👤 User: {user_name}\n🔥 {fb_status}"
+        await bot.send_photo(
+            chat_id=update.effective_chat.id,
+            photo=PHOTO_URL,
+            caption=f"🔥 *Welcome {user.first_name}!*\nStart earning by watching ads.",
+            parse_mode='Markdown',
+            reply_markup=main_menu()
         )
+    
+    elif update.callback_query:
+        query = update.callback_query
+        await query.answer()
+        user_id = query.from_user.id
         
-    except Exception as e:
-        # Agar koi bhi error aayega, ye bot par error message bhej dega
-        error_msg = traceback.format_exc()
-        await bot.send_message(chat_id=update.effective_chat.id, text=f"❌ DEBUG ERROR:\n\n{error_msg}")
+        if query.data == 'db':
+            data = db.reference(f"users/{user_id}").get() or {}
+            txt = f"📝 *DASHBOARD*\n\n💰 Balance: ${data.get('balance', 0)}\n✅ Tasks: {data.get('tasks', 0)}"
+            await query.edit_message_caption(caption=txt, parse_mode='Markdown', reply_markup=main_menu())
+        
+        elif query.data == 'sm':
+            kb = InlineKeyboardMarkup([[InlineKeyboardButton("YouTube", url="https://www.youtube.com/@USSoccerPulse")], [InlineKeyboardButton("Back", callback_data='home')]])
+            await query.edit_message_caption(caption="🔗 Social Media Links:", reply_markup=kb)
+        
+        elif query.data == 'home':
+            await query.edit_message_caption(caption="Main Menu:", reply_markup=main_menu())
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    try:
-        data = request.get_json(force=True)
-        update = Update.de_json(data, bot)
-        
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        if update.message:
-            loop.run_until_complete(debug_handler(update))
-            
-        loop.close()
-        return "ok", 200
-    except Exception as e:
-        return f"Webhook Critical Error: {str(e)}", 500
+    data = request.get_json(force=True)
+    update = Update.de_json(data, bot)
+    asyncio.run(handle_update(update))
+    return "ok", 200
 
 @app.route("/")
-def home():
-    fb_status = init_firebase()
-    return f"Bot Debug Mode Active. Firebase: {fb_status}"
+def index():
+    return "Bot is Live!"
