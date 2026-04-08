@@ -1,7 +1,10 @@
 {
-  "rewrites": [
-    { "source": "/api", "destination": "/api/index.py" },
-    { "source": "/dashboard", "destination": "/api/index.py" },
-    { "source": "/(.*)", "destination": "/api/index.py" }
+  "version": 2,
+  "builds": [{"src": "app.py", "use": "@vercel/python"}],
+  "routes": [
+    {"src": "/webhook", "dest": "app.py"},
+    {"src": "/health", "dest": "app.py"},
+    {"src": "/webapp/(.*)", "dest": "webapp/$1"},
+    {"src": "/(.*)", "dest": "app.py"}
   ]
 }
