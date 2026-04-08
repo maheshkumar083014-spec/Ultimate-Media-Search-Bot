@@ -1,10 +1,6 @@
 {
-  "functions": {
-    "api/index.py": {
-      "runtime": "vercel-python@0.0.6"
-    }
-  },
   "rewrites": [
+    { "source": "/webhook", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/api/index.py" }
   ]
 }
