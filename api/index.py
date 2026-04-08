@@ -6,96 +6,100 @@ import firebase_admin
 from firebase_admin import credentials, db
 from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
+# Flask app initialize
 app = Flask(__name__)
 
 # --- CONFIG ---
 TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
 FB_URL = "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/"
-# Aapki Dashboard wali photo ka link
 DASHBOARD_IMG = "https://i.ibb.co/3ykYmS7/user-photo.jpg" 
 
 bot = Bot(token=TOKEN)
 
-def init_firebase():
+# Firebase Init
+def init_fb():
     if not firebase_admin._apps:
         fb_json = os.getenv("FIREBASE_CONFIG_JSON")
         if fb_json:
             try:
                 cred = credentials.Certificate(json.loads(fb_json))
                 firebase_admin.initialize_app(cred, {"databaseURL": FB_URL})
-            except: pass
+            except Exception as e:
+                print(f"Firebase Error: {e}")
 
-# --- DASHBOARD KEYBOARD ---
-def main_menu():
-    # Dhyan dein: yahan hum 'url' nahi 'callback_data' use kar rahe hain
-    # Isse "Not Found" wala page nahi khulega, bot chat mein hi reply dega
-    keyboard = [
-        [InlineKeyboardButton("📊 View My Dashboard", callback_data='show_db')],
-        [InlineKeyboardButton("📺 Watch Ads & Earn", url="https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b")],
-        [InlineKeyboardButton("💰 Request Payout", callback_data='payout')],
-        [InlineKeyboardButton("📱 Social Links", callback_data='socials')]
-    ]
-    return InlineKeyboardMarkup(keyboard)
+# Main Keyboard
+def get_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📊 My Dashboard", callback_data='db')],
+        [InlineKeyboardButton("📺 Watch Ads", url="https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b")],
+        [InlineKeyboardButton("💰 Withdraw", callback_data='wd')],
+        [InlineKeyboardButton("📱 Social Media", callback_data='sm')]
+    ])
 
-async def process_update(update: Update):
-    init_firebase()
+# Handle Logic
+async def handle_logic(update: Update):
+    init_fb()
     
-    # 1. Jab koi /start dabaye
     if update.message and update.message.text == "/start":
         user = update.effective_user
-        # User ko Firebase mein check/save karein
-        ref = db.reference(f"users/{user.id}")
-        if not ref.get():
-            ref.set({"name": user.full_name, "balance": 74.50, "tasks": 1245})
+        # Firebase entry
+        try:
+            ref = db.reference(f"users/{user.id}")
+            if not ref.get():
+                ref.set({"name": user.full_name, "balance": 74.50, "tasks": 1245})
+        except: pass
 
         await bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=DASHBOARD_IMG,
-            caption=f"👋 *Welcome back, {user.first_name}!*\n\nAapka earning panel niche taiyar hai.",
+            caption=f"🔥 *Welcome back, {user.first_name}!*\n\nAapka earning panel niche taiyar hai.",
             parse_mode='Markdown',
-            reply_markup=main_menu()
+            reply_markup=get_keyboard()
         )
 
-    # 2. Jab koi Button dabaye (Dashboard/Social)
     elif update.callback_query:
         query = update.callback_query
-        user_id = query.from_user.id
-        await query.answer() # Button ki loading hatane ke liye
-
-        if query.data == 'show_db':
-            data = db.reference(f"users/{user_id}").get() or {}
-            bal = data.get('balance', 0.0)
-            tsk = data.get('tasks', 0)
-            
-            # Chat ke andar hi text update hoga
-            dashboard_text = (
-                f"🖥 *OFFICIAL DASHBOARD*\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"👤 *User:* {query.from_user.first_name}\n"
-                f"💰 *Balance:* `${bal}`\n"
-                f"✅ *Ads Viewed:* `{tsk} / 2,000`\n"
-                f"📈 *Status:* `Active`"
-            )
-            await query.edit_message_caption(caption=dashboard_text, parse_mode='Markdown', reply_markup=main_menu())
-
-        elif query.data == 'socials':
-            social_kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("YouTube", url="https://www.youtube.com/@USSoccerPulse")],
-                [InlineKeyboardButton("🔙 Back to Dashboard", callback_data='back_home')]
-            ])
-            await query.edit_message_caption(caption="🔗 *Follow our official links:*", reply_markup=social_kb)
+        await query.answer()
         
-        elif query.data == 'back_home':
-            await query.edit_message_caption(caption="Main Menu:", reply_markup=main_menu())
+        if query.data == 'db':
+            # Balance fetch
+            try:
+                data = db.reference(f"users/{query.from_user.id}").get() or {}
+                bal = data.get('balance', 0.0)
+                tsk = data.get('tasks', 0)
+            except:
+                bal, tsk = "Error", "Error"
 
+            text = (f"🖥 *OFFICIAL DASHBOARD*\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"💰 *Balance:* `${bal}`\n"
+                    f"✅ *Ads Viewed:* `{tsk} / 2,000`\n"
+                    f"📈 *Status:* `Active`")
+            await query.edit_message_caption(caption=text, parse_mode='Markdown', reply_markup=get_keyboard())
+
+        elif query.data == 'sm':
+            kb = InlineKeyboardMarkup([[InlineKeyboardButton("YouTube", url="https://www.youtube.com/@USSoccerPulse")], [InlineKeyboardButton("🔙 Back", callback_data='home')]])
+            await query.edit_message_caption(caption="🔗 Social Media Links:", reply_markup=kb)
+
+        elif query.data == 'home':
+            await query.edit_message_caption(caption="Main Menu:", reply_markup=get_keyboard())
+
+# Flask Route
 @app.route("/webhook", methods=["POST"])
-def telegram_webhook():
-    data = request.get_json(force=True)
-    update = Update.de_json(data, bot)
-    # Async loop handle karne ke liye
-    asyncio.run(process_update(update))
-    return "ok", 200
+def webhook():
+    try:
+        data = request.get_json(force=True)
+        update = Update.de_json(data, bot)
+        # Use existing loop or create new one
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(handle_logic(update))
+        loop.close()
+        return "ok", 200
+    except Exception as e:
+        print(f"Critical Error: {e}")
+        return "error", 500
 
 @app.route("/")
-def home():
+def index():
     return "Bot is Active!", 200
