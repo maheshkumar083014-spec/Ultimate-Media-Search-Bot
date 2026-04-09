@@ -7,92 +7,81 @@ from firebase_admin import credentials, db
 from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 app = Flask(__name__)
-
-# --- CONFIG ---
 TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
 FB_URL = "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/"
-# Dashboard Image Link
 DASHBOARD_IMG = "https://i.ibb.co/3ykYmS7/user-photo.jpg" 
 
 bot = Bot(token=TOKEN)
 
-# Firebase Setup
-def init_firebase():
+def init_fb():
     if not firebase_admin._apps:
-        fb_json = os.getenv("FIREBASE_CONFIG_JSON")
-        if fb_json:
-            try:
-                cred = credentials.Certificate(json.loads(fb_json))
+        try:
+            fb_json = os.getenv("FIREBASE_CONFIG_JSON")
+            if fb_json:
+                cred_dict = json.loads(fb_json)
+                cred = credentials.Certificate(cred_dict)
                 firebase_admin.initialize_app(cred, {"databaseURL": FB_URL})
-            except: pass
+                return True
+        except Exception as e:
+            print(f"Firebase Init Error: {e}")
+    return False
 
-# Keyboard UI
-def main_menu():
-    keyboard = [
+def get_main_kb():
+    return InlineKeyboardMarkup([
         [InlineKeyboardButton("📊 My Dashboard", callback_data='db')],
-        [InlineKeyboardButton("📺 Watch Ads & Earn", url="https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b")],
-        [InlineKeyboardButton("💰 Withdraw", callback_data='wd')],
-        [InlineKeyboardButton("📱 Social Media", callback_data='sm')]
-    ]
-    return InlineKeyboardMarkup(keyboard)
+        [InlineKeyboardButton("📺 Watch Ads", url="https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b")],
+        [InlineKeyboardButton("📱 Support", callback_data='help')]
+    ])
 
-async def handle_update(update: Update):
-    init_firebase()
+async def handle_logic(update: Update):
+    # Safe Firebase Init
+    fb_connected = init_fb()
     
-    # 1. Start Command
     if update.message and update.message.text == "/start":
         user = update.effective_user
-        ref = db.reference(f"users/{user.id}")
-        if not ref.get():
-            # Initial Data
-            ref.set({"name": user.first_name, "balance": 0.00, "tasks": 0})
+        welcome_msg = f"🔥 *Welcome {user.first_name}!*\n\nBot is now online. Click below to view your earnings."
         
+        # Try to save user if FB is connected
+        if fb_connected:
+            try:
+                db.reference(f"users/{user.id}").update({"name": user.first_name})
+            except: pass
+
         await bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=DASHBOARD_IMG,
-            caption=f"👋 *Welcome back, {user.first_name}!*\n\nAapka Ad-Earning Dashboard taiyar hai.\nNiche diye buttons se earning shuru karein!",
+            caption=welcome_msg,
             parse_mode='Markdown',
-            reply_markup=main_menu()
+            reply_markup=get_main_kb()
         )
 
-    # 2. Button Clicks
     elif update.callback_query:
         query = update.callback_query
-        user_id = query.from_user.id
         await query.answer()
-
         if query.data == 'db':
-            data = db.reference(f"users/{user_id}").get() or {}
-            bal = data.get('balance', 0.0)
-            tsk = data.get('tasks', 0)
+            # Default values if FB fails
+            bal, tsk = "0.00", "0"
+            if fb_connected:
+                data = db.reference(f"users/{query.from_user.id}").get() or {}
+                bal = data.get('balance', "0.00")
+                tsk = data.get('tasks', "0")
             
-            txt = (f"🖥 *YOUR AD-EARNING DASHBOARD*\n"
-                   f"━━━━━━━━━━━━━━━━━━━━\n"
-                   f"👤 *User:* {query.from_user.first_name}\n"
-                   f"💰 *Available Balance:* `${bal}`\n"
-                   f"✅ *Ads Viewed:* `{tsk} / 2,000`\n"
-                   f"━━━━━━━━━━━━━━━━━━━━\n"
-                   f"Daily Ad Stream: *COMPLETED*")
-            await query.edit_message_caption(caption=txt, parse_mode='Markdown', reply_markup=main_menu())
-
-        elif query.data == 'sm':
-            social_kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("YouTube", url="https://www.youtube.com/@USSoccerPulse")],
-                [InlineKeyboardButton("Instagram", url="https://www.instagram.com/digital_rockstar_m")],
-                [InlineKeyboardButton("🔙 Back", callback_data='home')]
-            ])
-            await query.edit_message_caption(caption="🔗 *Our Social Media Links:*", parse_mode='Markdown', reply_markup=social_kb)
-        
-        elif query.data == 'home':
-            await query.edit_message_caption(caption="Main Menu:", reply_markup=main_menu())
+            await query.edit_message_caption(
+                caption=f"🖥 *DASHBOARD*\n💰 Balance: `${bal}`\n✅ Ads: `{tsk}`",
+                parse_mode='Markdown',
+                reply_markup=get_main_kb()
+            )
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json(force=True)
-    update = Update.de_json(data, bot)
-    asyncio.run(handle_update(update))
+    try:
+        data = request.get_json(force=True)
+        update = Update.de_json(data, bot)
+        asyncio.run(handle_logic(update))
+    except Exception as e:
+        print(f"Webhook Error: {e}")
     return "ok", 200
 
 @app.route("/")
 def index():
-    return "Bot is Live!", 200
+    return "Bot is Live and Active!", 200
