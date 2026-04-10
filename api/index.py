@@ -1,5 +1,4 @@
 import json
-import os
 from flask import Flask, request, jsonify, send_from_directory
 from bot import bot, process_update, db_ref, update_balance
 
@@ -8,7 +7,8 @@ app = Flask(__name__, static_folder='../public', static_url_path='')
 @app.route('/api/webhook', methods=['POST'])
 def webhook():
     if request.headers.get('content-type') == 'application/json':
-        process_update(json.loads(request.get_data().decode('utf-8')))
+        data = request.get_data().decode('utf-8')
+        process_update(json.loads(data))
         return ''
     return 'Bad request', 400
 
@@ -18,7 +18,6 @@ def get_user_data():
     if not tg_id:
         return jsonify({'error': 'tg_id missing'}), 400
     user = db_ref.child(f'users/{tg_id}').get() or {}
-    # Also fetch Telegram profile info if needed (we'll do it frontend via WebApp)
     return jsonify(user)
 
 @app.route('/api/add_points', methods=['POST'])
@@ -35,8 +34,10 @@ def add_points():
 def update_task():
     data = request.json
     tg_id = data.get('tg_id')
-    task = data.get('task')  # e.g., 'daily_ad', 'offerwall'
+    task = data.get('task')
     completed = data.get('completed')
+    if not tg_id or not task:
+        return jsonify({'error': 'Missing fields'}), 400
     db_ref.child(f'users/{tg_id}/tasks/{task}').set(completed)
     return jsonify({'success': True})
 
@@ -44,7 +45,6 @@ def update_task():
 def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
 
-# Vercel handler
 def handler(event, context):
     return app(event, context)
 
