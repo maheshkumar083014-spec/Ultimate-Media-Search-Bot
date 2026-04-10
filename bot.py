@@ -66,13 +66,12 @@ def start(message):
         "👋 *Welcome to Ultimate Media Search!*\n\n"
         "📺 Watch ads • 30s = +5 pts\n"
         "🌐 Social tasks = +10 pts\n"
-        "👥 Referral = +500 pts\n\n"
-        "Tap below to open your dashboard.",
+        "👥 Referral = +500 pts",
         parse_mode="Markdown",
         reply_markup=markup
     )
 
-# Webhook helpers
+# ===== WEBHOOK HELPERS =====
 def set_webhook(url):
     bot.remove_webhook()
     bot.set_webhook(url + "/api/webhook")
