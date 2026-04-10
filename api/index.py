@@ -1,42 +1,52 @@
-import os
 import json
-import asyncio
-from flask import Flask, request
-import firebase_admin
-from firebase_admin import credentials, db
-from telegram import Update, Bot, InlineKeyboardButton, InlineKeyboardMarkup
+import os
+from flask import Flask, request, jsonify, send_from_directory
+from bot import bot, process_update, db_ref, update_balance
 
-app = Flask(__name__)
-TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
-FB_URL = "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/"
-DASHBOARD_IMG = "https://i.ibb.co/3ykYmS7/user-photo.jpg" 
+app = Flask(__name__, static_folder='../public', static_url_path='')
 
-bot = Bot(token=TOKEN)
-
-def init_fb():
-    if not firebase_admin._apps:
-        try:
-            fb_json = os.getenv("FIREBASE_CONFIG_JSON")
-            if fb_json:
-                cred = credentials.Certificate(json.loads(fb_json))
-                firebase_admin.initialize_app(cred, {"databaseURL": FB_URL})
-                return True
-        except: pass
-    return False
-
-@app.route("/webhook", methods=["POST"])
+@app.route('/api/webhook', methods=['POST'])
 def webhook():
-    data = request.get_json(force=True)
-    update = Update.de_json(data, bot)
-    asyncio.run(handle_logic(update))
-    return "ok", 200
+    if request.headers.get('content-type') == 'application/json':
+        process_update(json.loads(request.get_data().decode('utf-8')))
+        return ''
+    return 'Bad request', 400
 
-async def handle_logic(update):
-    init_fb()
-    if update.message and update.message.text == "/start":
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("📊 Dashboard", callback_data='db')]])
-        await bot.send_photo(chat_id=update.effective_chat.id, photo=DASHBOARD_IMG, caption="Bot Active!", reply_markup=kb)
+@app.route('/api/get_user', methods=['GET'])
+def get_user_data():
+    tg_id = request.args.get('tg_id')
+    if not tg_id:
+        return jsonify({'error': 'tg_id missing'}), 400
+    user = db_ref.child(f'users/{tg_id}').get() or {}
+    # Also fetch Telegram profile info if needed (we'll do it frontend via WebApp)
+    return jsonify(user)
 
-@app.route("/")
-def index():
-    return "Bot is Live!", 200
+@app.route('/api/add_points', methods=['POST'])
+def add_points():
+    data = request.json
+    tg_id = data.get('tg_id')
+    points = data.get('points')
+    if not tg_id or points is None:
+        return jsonify({'error': 'Invalid data'}), 400
+    update_balance(tg_id, points)
+    return jsonify({'success': True})
+
+@app.route('/api/update_task', methods=['POST'])
+def update_task():
+    data = request.json
+    tg_id = data.get('tg_id')
+    task = data.get('task')  # e.g., 'daily_ad', 'offerwall'
+    completed = data.get('completed')
+    db_ref.child(f'users/{tg_id}/tasks/{task}').set(completed)
+    return jsonify({'success': True})
+
+@app.route('/')
+def serve_index():
+    return send_from_directory(app.static_folder, 'index.html')
+
+# Vercel handler
+def handler(event, context):
+    return app(event, context)
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
