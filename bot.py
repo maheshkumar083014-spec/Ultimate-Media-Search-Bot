@@ -5,10 +5,10 @@ from firebase_admin import credentials, db
 from telebot import types
 
 # ===== CONFIGURATION =====
-BOT_TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw")
 FIREBASE_DB_URL = "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app"
 
-# Firebase init
+# Firebase init (dummy credentials for demo; set GOOGLE_APPLICATION_CREDENTIALS in Vercel for production)
 try:
     firebase_admin.initialize_app(
         credentials.Certificate({
