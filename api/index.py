@@ -1,52 +1,51 @@
-import json
-from flask import Flask, request, jsonify, send_from_directory
-from bot import bot, process_update, db_ref, update_balance
+import telebot
+from telebot import types
+import firebase_admin
+from firebase_admin import credentials, db
 
-app = Flask(__name__, static_folder='../public', static_url_path='')
+# 1. Firebase Setup
+# अपनी Firebase JSON फाइल का पाथ यहाँ डालें
+cred = credentials.Certificate("serviceAccountKey.json")
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://your-project-id.firebaseio.com/'
+})
 
-@app.route('/api/webhook', methods=['POST'])
-def webhook():
-    if request.headers.get('content-type') == 'application/json':
-        data = request.get_data().decode('utf-8')
-        process_update(json.loads(data))
-        return ''
-    return 'Bad request', 400
+# 2. Bot Setup
+API_TOKEN = 'YOUR_BOT_TOKEN_HERE'
+bot = telebot.TeleBot(API_TOKEN)
 
-@app.route('/api/get_user', methods=['GET'])
-def get_user_data():
-    tg_id = request.args.get('tg_id')
-    if not tg_id:
-        return jsonify({'error': 'tg_id missing'}), 400
-    user = db_ref.child(f'users/{tg_id}').get() or {}
-    return jsonify(user)
+# --- Handlers ---
 
-@app.route('/api/add_points', methods=['POST'])
-def add_points():
-    data = request.json
-    tg_id = data.get('tg_id')
-    points = data.get('points')
-    if not tg_id or points is None:
-        return jsonify({'error': 'Invalid data'}), 400
-    update_balance(tg_id, points)
-    return jsonify({'success': True})
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    user_id = str(message.from_user.id)
+    user_ref = db.reference(f'users/{user_id}')
+    
+    # यूजर अगर नया है तो डेटाबेस में ऐड करें
+    if not user_ref.get():
+        user_ref.set({
+            'name': message.from_user.first_name,
+            'points': 0,
+            'referrals': 0
+        })
 
-@app.route('/api/update_task', methods=['POST'])
-def update_task():
-    data = request.json
-    tg_id = data.get('tg_id')
-    task = data.get('task')
-    completed = data.get('completed')
-    if not tg_id or not task:
-        return jsonify({'error': 'Missing fields'}), 400
-    db_ref.child(f'users/{tg_id}/tasks/{task}').set(completed)
-    return jsonify({'success': True})
+    # Welcome Message के साथ Buttons (Inline Keyboard)
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    btn_tasks = types.InlineKeyboardButton("🎯 Tasks", callback_data="tasks")
+    btn_wallet = types.InlineKeyboardButton("💰 My Earnings", callback_data="wallet")
+    btn_dash = types.InlineKeyboardButton("🌐 Open Dashboard", url="https://your-vercel-app.com")
+    
+    markup.add(btn_tasks, btn_wallet)
+    markup.add(btn_dash)
 
-@app.route('/')
-def serve_index():
-    return send_from_directory(app.static_folder, 'index.html')
+    bot.reply_to(message, f"नमस्ते {message.from_user.first_name}! 👋\nहमारे Earn Bot में आपका स्वागत है। टास्क पूरे करें और पॉइंट्स कमाएं।", reply_markup=markup)
 
-def handler(event, context):
-    return app(event, context)
+@bot.callback_query_handler(func=lambda call: True)
+def callback_inline(call):
+    if call.data == "wallet":
+        user_id = str(call.from_user.id)
+        points = db.reference(f'users/{user_id}/points').get()
+        bot.answer_callback_query(call.id, f"आपके पास {points} पॉइंट्स हैं।")
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+# बॉट को चालू रखना
+bot.polling()
