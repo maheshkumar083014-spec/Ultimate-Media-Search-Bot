@@ -3,33 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EarnPro Dashboard</title>
+    <title>User Dashboard | Earn Bot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #0d1117; color: white; font-family: sans-serif; margin: 0; padding: 15px; }
-        .balance-card { background: #161b22; border: 1px solid #30363d; border-radius: 25px; padding: 30px; text-align: center; margin-bottom: 20px; border-bottom: 4px solid #fbbf24; }
-        .coin-val { font-size: 50px; font-weight: bold; color: #fbbf24; }
-        .task-btn { background: #161b22; border: 1px solid #30363d; border-radius: 15px; padding: 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; text-decoration: none; color: white; }
-        .btn { background: #2563eb; color: white; padding: 10px 20px; border-radius: 10px; border: none; font-weight: bold; width: 100%; cursor: pointer; }
+        :root {
+            --primary-color: #0088cc;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #ffffff;
+            --accent-green: #22c55e;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .dashboard-container {
+            width: 90%;
+            max-width: 400px;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .user-id {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin-bottom: 10px;
+        }
+
+        .points-section {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+
+        .points-section h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--primary-color);
+        }
+
+        .pts-value {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: var(--accent-green);
+            margin: 10px 0;
+        }
+
+        .btn-smart-link {
+            display: block;
+            background: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            padding: 15px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: transform 0.2s, background 0.3s;
+            margin-top: 15px;
+        }
+
+        .btn-smart-link:active {
+            transform: scale(0.95);
+            background: #0077b5;
+        }
+
+        .info-text {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 15px;
+            line-height: 1.4;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--accent-green);
+            border-radius: 50px;
+            font-size: 0.7rem;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
-    <div style="font-weight: bold; color: #2563eb;">EARNPRO</div>
-    <div class="balance-card">
-        <small style="color: #8b949e;">TOTAL BALANCE</small>
-        <div class="coin-val">{{pts}}.00</div>
-        <small>Min. Withdraw: 200 Coins</small>
+
+    <div class="dashboard-container">
+        <div class="status-badge">● System Online</div>
+        <div class="user-id">User ID: {{ uid }}</div>
+        
+        <div class="points-section">
+            <h2>Current Balance</h2>
+            <div class="pts-value">{{ pts }}</div>
+            <div style="font-size: 0.9rem; color: #94a3b8;">Available Points</div>
+        </div>
+
+        <a href="{{ ad_link }}" target="_blank" class="btn-smart-link">
+            🚀 Click & Earn Points
+        </a>
+
+        <p class="info-text">
+            Points will be updated automatically after clicking the link and staying for 30 seconds.
+        </p>
     </div>
 
-    <div style="font-size: 14px; margin-bottom: 10px; color: #8b949e;">DAILY TASKS</div>
-    <a href="{{ad_link}}" class="task-btn">
-        <div><b>Watch Video Ad</b><br><small>+10.00 Coins</small></div>
-        <div style="background: #fbbf24; color: black; padding: 5px 10px; border-radius: 8px; font-weight: bold;">GO</div>
-    </a>
-
-    <div style="background: rgba(37,99,235,0.1); padding: 20px; border-radius: 20px; text-align: center; margin-top: 20px; border: 1px dashed #2563eb;">
-        <small>Referral Code</small>
-        <div style="font-size: 24px; color: #2563eb; font-weight: bold; margin: 10px 0;">EP-{{uid[:6]}}</div>
-        <button class="btn" onclick="window.location.href='https://t.me/share/url?url=https://t.me/bot?start={{uid}}'">INVITE & EARN +15</button>
-    </div>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD50eWvysruXgtgpDhhCVE2zdbSbLkFBwk",
+            authDomain: "ultimatemediasearch.firebaseapp.com",
+            databaseURL: "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "ultimatemediasearch",
+            storageBucket: "ultimatemediasearch.firebasestorage.app",
+            messagingSenderId: "123003124713",
+            appId: "1:123003124713:web:c738c97b2772b112822978"
+        };
+        // Firebase initialization script yahan add kar sakte hain agar future mein direct JS update chahiye ho.
+    </script>
 </body>
 </html>
