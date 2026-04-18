@@ -1,20 +1,13 @@
 import os
 import firebase_admin
 from firebase_admin import credentials, db
-from flask import Flask, request, render_template
-from telegram import Update, Bot, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
+from flask import Flask, request, render_template, send_from_directory
 
 app = Flask(__name__)
-
-# Config
-TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=TOKEN)
-SMART_LINK = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
 
 def init_firebase():
     if not firebase_admin._apps:
         try:
-            # Environment variables se key uthana aur format sahi karna
             p_key = os.getenv("FIREBASE_PRIVATE_KEY").replace('\\n', '\n').strip('"').strip("'")
             cred = credentials.Certificate({
                 "type": "service_account",
@@ -29,52 +22,26 @@ def init_firebase():
         except Exception as e:
             print(f"Firebase Init Error: {e}")
 
-@app.route('/', methods=['GET', 'POST'])
-def webhook():
-    if request.method == "POST":
-        try:
-            data = request.get_json(force=True)
-            update = Update.de_json(data, bot)
-            
-            if update.message:
-                chat_id = update.message.chat_id
-                user_name = update.message.from_user.first_name
-                
-                # Dashboard URL (Naya wala)
-                dash_url = f"https://ultimate-media-search-bot-t7kj.vercel.app/dashboard?id={chat_id}"
-                
-                # Keyboard Button with WebApp
-                keyboard = [
-                    [KeyboardButton("📊 Open Dashboard", web_app=WebAppInfo(url=dash_url))]
-                ]
-                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                
-                bot.send_message(
-                    chat_id=chat_id, 
-                    text=f"Hello {user_name}! Welcome to Ultimate Media Search Bot.\n\nClick the button below to earn points.",
-                    reply_markup=reply_markup
-                )
-            return "ok", 200
-        except Exception as e:
-            print(f"Webhook Error: {e}")
-            return "error", 500
-    return "Bot status: Running"
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204  # Favicon ka error khatam karne ke liye
+
+@app.route('/')
+def home():
+    return "Bot is Live!"
 
 @app.route('/dashboard')
 def dashboard():
-    uid = request.args.get('id', 'Unknown')
+    uid = request.args.get('id', 'Guest')
     pts = 0
+    ad_link = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
+    
     try:
         init_firebase()
-        u_ref = db.reference(f'users/{uid}')
-        u_data = u_ref.get()
-        if not u_data:
-            # Agar naya user hai toh database mein entry bana do
-            u_ref.set({"pts": 0, "name": uid})
-        else:
+        u_data = db.reference(f'users/{uid}').get()
+        if u_data:
             pts = u_data.get('pts', 0)
-    except Exception as e:
-        print(f"Dashboard DB Error: {e}")
+    except:
         pts = 0
 
-    return render_template('dashboard.html', pts=pts, uid=uid, ad_link=SMART_LINK)
+    return render_template('dashboard.html', pts=pts, uid=uid, ad_link=ad_link)
