@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EarnPro Dashboard</title>
+    <style>
+        body { background-color: #0d1117; color: white; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 15px; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 5px; }
+        .brand { background: #2563eb; padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: 14px; }
+        .balance-card { background: #161b22; border: 1px solid #30363d; border-radius: 28px; padding: 35px 20px; text-align: center; margin: 20px 0; }
+        .balance-amount { font-size: 55px; font-weight: 800; color: #fbbf24; margin: 10px 0; }
+        .task-card { background: #161b22; border: 1px solid #30363d; border-radius: 18px; padding: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; text-decoration: none; color: white; }
+        .btn-claim { background: #fbbf24; color: black; padding: 8px 18px; border-radius: 12px; font-weight: bold; font-size: 13px; }
+        .refer-section { background: rgba(37, 99, 235, 0.05); border: 1px dashed #2563eb; border-radius: 22px; padding: 20px; text-align: center; margin-top: 20px; }
+        .promo-code { font-size: 24px; font-weight: bold; color: #2563eb; letter-spacing: 3px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="brand">EARNPRO</div>
+        <div style="color: #8b949e; font-size: 12px;">ID: EP-{{uid[:6]}}</div>
+    </div>
+    <div class="balance-card">
+        <div style="color: #8b949e; font-size: 13px;">Available Coins</div>
+        <div class="balance-amount">{{pts}}.00</div>
+        <div style="color: #fbbf24; font-size: 12px;">MIN. PAYOUT: 200</div>
+    </div>
+    <div style="font-size: 14px; color: #8b949e; margin-bottom: 10px;">TASKS</div>
+    <a href="{{ad_link}}" class="task-card">
+        <div><b>Video Ad Task</b><br><small style="color: #8b949e;">Earn +10.00 Coins</small></div>
+        <div class="btn-claim">WATCH</div>
+    </a>
+    <div class="refer-section">
+        <div style="font-size: 11px; color: #8b949e;">Your Invite Code</div>
+        <div class="promo-code">EP-{{uid[:6]}}</div>
+        <button onclick="window.location.href='https://t.me/share/url?url=https://t.me/bot?start={{uid}}'" style="background: #2563eb; color: white; border: none; padding: 12px; width: 100%; border-radius: 12px; font-weight: bold;">SHARE & EARN +15</button>
+    </div>
+</body>
+</html>
