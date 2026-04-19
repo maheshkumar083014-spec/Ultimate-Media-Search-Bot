@@ -1,13 +1,291 @@
-<div class="card">
-    <div class="welcome-header">
-        <p id="greeting">Good Morning,</p>
-        <h2 class="user-title">{{ user_name }}! 👋</h2>
-        <p style="font-size: 0.7rem; color: #64748b;">UID: {{ uid }}</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard | Ultimate Media Search</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0b0f15; color: #eef2ff; }
+    .card { background: #1e2532; border: 1px solid #2d3748; }
+    .btn-primary { background: #3b82f6; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: #374151; }
+    .btn-secondary:hover { background: #4b5563; }
+    .timer-bar { transition: width 1s linear; }
+  </style>
+</head>
+<body class="font-sans antialiased">
+
+<div class="max-w-2xl mx-auto px-4 py-8">
+  <!-- Header -->
+  <div class="card rounded-2xl p-6 mb-6 shadow-xl">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          Ultimate Media Search
+        </h1>
+        <p class="text-gray-400 mt-1">Welcome, <span id="userName" class="text-white font-semibold"></span></p>
+        <p class="text-xs text-gray-500">ID: <span id="userId"></span></p>
+      </div>
+      <div class="text-right">
+        <div class="text-sm text-gray-400">Your Balance</div>
+        <div class="text-4xl font-bold text-green-400" id="pointsDisplay">0</div>
+        <div class="text-xs text-gray-500">≈ $<span id="usdValue">0.00</span></div>
+      </div>
     </div>
+  </div>
+
+  <!-- Ad Card -->
+  <div class="card rounded-2xl p-6 mb-6 shadow-xl">
+    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+      <span>📺 Watch Ad</span>
+      <span class="text-sm bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded-full">+25 pts</span>
+    </h2>
+    <p class="text-gray-300 text-sm mb-4">Watch a short advertisement to earn 25 points. Available once every 24 hours.</p>
+    
+    <div class="mb-4">
+      <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+        <div id="timerProgress" class="h-full bg-blue-500 timer-bar" style="width: 0%"></div>
+      </div>
+      <div class="flex justify-between text-xs text-gray-400 mt-1">
+        <span id="timerText">0s / 30s</span>
+        <span id="cooldownInfo" class="text-orange-400"></span>
+      </div>
     </div>
 
+    <div class="flex gap-3">
+      <button id="adLinkBtn" onclick="openAdLink()" class="btn-secondary flex-1 py-3 rounded-xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed">
+        🔗 Open Ad Link
+      </button>
+      <button id="claimAdBtn" onclick="claimAd()" disabled class="btn-primary flex-1 py-3 rounded-xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed">
+        ✅ Claim 25 Points
+      </button>
+    </div>
+    <p id="adStatus" class="text-sm text-gray-400 mt-3"></p>
+  </div>
+
+  <!-- Social Tasks -->
+  <div class="card rounded-2xl p-6 shadow-xl">
+    <h2 class="text-xl font-semibold mb-4">🌐 Social Tasks (+100 pts each)</h2>
+    <div class="space-y-4">
+      <!-- YouTube -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">▶️</span>
+          <div>
+            <p class="font-medium">Subscribe on YouTube</p>
+            <p class="text-xs text-gray-400">Watch & follow our channel</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <a href="https://www.youtube.com/@Instagrampost1" target="_blank" onclick="markTaskClicked('youtube')" class="btn-secondary px-4 py-2 rounded-lg text-sm">Go</a>
+          <button id="claimYtBtn" onclick="claimSocial('youtube')" class="btn-primary px-4 py-2 rounded-lg text-sm disabled:opacity-50" disabled>Claim</button>
+        </div>
+      </div>
+      <!-- Instagram -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">📷</span>
+          <div>
+            <p class="font-medium">Follow on Instagram</p>
+            <p class="text-xs text-gray-400">Follow our profile</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <a href="https://www.instagram.com/digital_rockstar_m" target="_blank" onclick="markTaskClicked('instagram')" class="btn-secondary px-4 py-2 rounded-lg text-sm">Go</a>
+          <button id="claimIgBtn" onclick="claimSocial('instagram')" class="btn-primary px-4 py-2 rounded-lg text-sm disabled:opacity-50" disabled>Claim</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-    // Firebase initialization wahi rahega jo aapne pehle kiya tha
-    const userId = "{{ uid }}"; // Ab ye real ID lega
-    // ... baki script logic
+  // ---------- Read URL Parameters ----------
+  const urlParams = new URLSearchParams(window.location.search);
+  const uid = urlParams.get('id');
+  const name = urlParams.get('name') || 'User';
+
+  document.getElementById('userName').innerText = name;
+  document.getElementById('userId').innerText = uid || 'unknown';
+
+  // ---------- Global State ----------
+  let currentPoints = 0;
+  let adTimer = 0;
+  let timerInterval = null;
+  let adLinkOpened = false;
+  let adClaimable = false;
+
+  // UI elements
+  const pointsDisplay = document.getElementById('pointsDisplay');
+  const usdValue = document.getElementById('usdValue');
+  const adLinkBtn = document.getElementById('adLinkBtn');
+  const claimAdBtn = document.getElementById('claimAdBtn');
+  const timerText = document.getElementById('timerText');
+  const timerProgress = document.getElementById('timerProgress');
+  const adStatus = document.getElementById('adStatus');
+  const cooldownInfo = document.getElementById('cooldownInfo');
+  const claimYtBtn = document.getElementById('claimYtBtn');
+  const claimIgBtn = document.getElementById('claimIgBtn');
+
+  // Ad smart link
+  const AD_LINK = 'https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b';
+
+  // ---------- Helper: Update Points Display ----------
+  function updatePointsDisplay(points) {
+    currentPoints = points;
+    pointsDisplay.innerText = points;
+    usdValue.innerText = (points / 100).toFixed(2);
+  }
+
+  // ---------- Fetch Initial Points & Task Status ----------
+  async function loadUserData() {
+    if (!uid) {
+      adStatus.innerText = 'Error: Missing user ID';
+      return;
+    }
+    try {
+      const res = await fetch(`/api/get_points?uid=${uid}`);
+      const data = await res.json();
+      if (data.points !== undefined) updatePointsDisplay(data.points);
+      
+      // Also fetch full user data to check claim status (cooldown & social claims)
+      // We'll do this by calling a custom endpoint or just rely on Firebase realtime later.
+      // For simplicity, we'll fetch from a new endpoint or use the same one with extra data.
+      const fullRes = await fetch(`/api/get_user_data?uid=${uid}`);
+      if (fullRes.ok) {
+        const userData = await fullRes.json();
+        const tasks = userData.tasks || {};
+        
+        // Check ad cooldown
+        const lastClaim = tasks.ad_last_claim || 0;
+        const now = Math.floor(Date.now() / 1000);
+        if (now - lastClaim < 86400) {
+          const remaining = 86400 - (now - lastClaim);
+          const hours = Math.floor(remaining / 3600);
+          const mins = Math.floor((remaining % 3600) / 60);
+          cooldownInfo.innerText = `⏳ Cooldown: ${hours}h ${mins}m`;
+          adLinkBtn.disabled = true;
+          claimAdBtn.disabled = true;
+        } else {
+          cooldownInfo.innerText = '';
+        }
+        
+        // Social claims
+        if (tasks.youtube_claimed) {
+          claimYtBtn.disabled = true;
+          claimYtBtn.innerText = 'Claimed';
+        }
+        if (tasks.instagram_claimed) {
+          claimIgBtn.disabled = true;
+          claimIgBtn.innerText = 'Claimed';
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load user data', err);
+    }
+  }
+
+  // We'll create a simple /api/get_user_data endpoint (add to index.py)
+  // But for brevity, we can also just rely on the claim endpoints returning error if already claimed.
+  // We'll add the endpoint later.
+
+  // ---------- Ad Timer Logic ----------
+  function openAdLink() {
+    if (!uid) return;
+    window.open(AD_LINK, '_blank');
+    adLinkOpened = true;
+    adLinkBtn.disabled = true;
+    adLinkBtn.innerText = '⏳ Timer started...';
+    adStatus.innerText = 'Watch the ad for 30 seconds to unlock the claim button.';
+    
+    // Start 30s timer
+    let seconds = 0;
+    timerInterval = setInterval(() => {
+      seconds++;
+      timerText.innerText = `${seconds}s / 30s`;
+      const percent = (seconds / 30) * 100;
+      timerProgress.style.width = `${percent}%`;
+      
+      if (seconds >= 30) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        adClaimable = true;
+        claimAdBtn.disabled = false;
+        adStatus.innerText = '✅ You can now claim your 25 points!';
+        timerText.innerText = '30s / 30s';
+        timerProgress.style.width = '100%';
+      }
+    }, 1000);
+  }
+
+  async function claimAd() {
+    if (!adClaimable || !uid) return;
+    claimAdBtn.disabled = true;
+    claimAdBtn.innerText = 'Claiming...';
+    try {
+      const res = await fetch('/api/claim_ad', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({uid})
+      });
+      const data = await res.json();
+      if (data.success) {
+        updatePointsDisplay(data.points);
+        adStatus.innerText = '🎉 Points added! Come back in 24h for more.';
+        cooldownInfo.innerText = '⏳ Cooldown: 24h';
+        adLinkBtn.disabled = true;
+      } else {
+        adStatus.innerText = '❌ Claim failed. You may have already claimed today.';
+      }
+    } catch (err) {
+      adStatus.innerText = '❌ Network error. Try again.';
+      claimAdBtn.disabled = false;
+    }
+  }
+
+  // ---------- Social Tasks ----------
+  function markTaskClicked(platform) {
+    const btn = platform === 'youtube' ? claimYtBtn : claimIgBtn;
+    btn.disabled = false;
+  }
+
+  async function claimSocial(platform) {
+    if (!uid) return;
+    const btn = platform === 'youtube' ? claimYtBtn : claimIgBtn;
+    btn.disabled = true;
+    btn.innerText = 'Claiming...';
+    try {
+      const res = await fetch('/api/claim_social', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({uid, platform})
+      });
+      const data = await res.json();
+      if (data.success) {
+        updatePointsDisplay(data.points);
+        btn.innerText = 'Claimed';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary');
+      } else {
+        btn.disabled = false;
+        btn.innerText = 'Claim';
+        alert('Already claimed or error occurred.');
+      }
+    } catch (err) {
+      btn.disabled = false;
+      btn.innerText = 'Claim';
+      alert('Network error.');
+    }
+  }
+
+  // ---------- Initialize ----------
+  loadUserData();
+  // Optional: set up realtime listener for points (Firebase Web SDK) – not included for brevity.
+
+  // Additional endpoint needed: /api/get_user_data
+  // We'll add it in the final index.py.
 </script>
+</body>
+</html>
