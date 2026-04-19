@@ -9,18 +9,18 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         body { background: #050a18; color: white; font-family: 'Outfit', sans-serif; display: flex; justify-content: center; padding: 20px; }
-        .card { width: 100%; max-width: 400px; background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); border-radius: 24px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .card { width: 100%; max-width: 400px; background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); border-radius: 24px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); text-align: center; }
         .pts-box { font-size: 3rem; color: #00d2ff; font-weight: 700; margin: 10px 0; }
         .btn-main { width: 100%; padding: 16px; border-radius: 16px; border: none; background: linear-gradient(90deg, #00d2ff, #3a7bd5); color: white; font-weight: 600; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="card">
-        <p>Good Day, {{ user_name }}!</p>
-        <p style="font-size: 0.7rem; color: #64748b;">UID: {{ uid }}</p>
+        <p>Good Morning, {{ user_name }}!</p>
+        <p style="font-size: 0.75rem; color: #64748b;">UID: {{ uid }}</p>
         <div class="pts-box" id="pointsVal">{{ pts }}</div>
-        <p>POINTS BALANCE</p>
-        <button class="btn-main" id="adBtn" onclick="watchAd()">🚀 Watch Ad (+25 Pts)</button>
+        <p>Current Balance</p>
+        <button class="btn-main" id="adBtn" onclick="watchAd()">🚀 Watch Ad & Earn +25 Pts</button>
         <p id="timerMsg" style="font-size: 0.8rem; margin-top: 10px; color: #94a3b8;"></p>
     </div>
 
@@ -37,11 +37,12 @@
             btn.disabled = true;
             const t = setInterval(() => {
                 s--;
-                document.getElementById('timerMsg').innerText = `Claiming in ${s}s...`;
+                document.getElementById('timerMsg').innerText = `Rewards unlock in ${s}s...`;
                 if(s <= 0) {
                     clearInterval(t);
                     db.ref('users/' + userId).transaction(c => {
                         if(c) { c.pts = (c.pts || 0) + 25; }
+                        else { return { pts: 25 }; }
                         return c;
                     });
                     btn.disabled = false;
