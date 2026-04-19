@@ -3,13 +3,14 @@ import firebase_admin
 from firebase_admin import credentials, db
 from flask import Flask, request, render_template
 
-# Flask ko batana padega ki templates folder ek level bahar hai
-app = Flask(__name__, template_folder='../templates')
+# Flask ko batana padega ki templates folder root mein hai
+app = Flask(__name__, 
+            template_folder=os.path.join(os.path.dirname(__file__), '../templates'))
 
 def init_firebase():
     if not firebase_admin._apps:
         try:
-            # Environment variables format fix
+            # Environment variables se credentials uthana
             raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "")
             p_key = raw_key.replace('\\n', '\n').strip('"').strip("'")
             c_email = os.getenv("FIREBASE_CLIENT_EMAIL")
@@ -26,16 +27,17 @@ def init_firebase():
                     'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'
                 })
         except Exception as e:
-            print(f"Firebase Fail: {e}")
+            print(f"Firebase Error: {e}")
 
 @app.route('/')
 def home():
-    return "Bot is Live!"
+    return "Bot is Live! 🚀"
 
 @app.route('/dashboard')
 def dashboard():
     uid = request.args.get('id', 'Guest')
-    user_name = request.args.get('name', 'Explorer') # Bot se naam aayega
+    # Bot se name pass hoga, nahi toh 'Explorer' dikhega
+    user_name = request.args.get('name', 'Explorer') 
     pts = 0
     ad_link = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
     
