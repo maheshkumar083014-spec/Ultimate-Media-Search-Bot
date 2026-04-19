@@ -4,12 +4,31 @@
     {
       "src": "api/index.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "templates/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
+      "src": "/dashboard",
+      "dest": "/templates/dashboard.html"
+    },
+    {
+      "src": "/webhook",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/set-webhook",
+      "dest": "/api/index.py"
+    },
+    {
       "src": "/(.*)",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     }
-  ]
+  ],
+  "env": {
+    "PYTHON_VERSION": "3.9"
+  }
 }
