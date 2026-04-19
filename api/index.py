@@ -3,14 +3,12 @@ import firebase_admin
 from firebase_admin import credentials, db
 from flask import Flask, request, render_template
 
-# Flask ko batana padega ki templates folder root mein hai
 app = Flask(__name__, 
             template_folder=os.path.join(os.path.dirname(__file__), '../templates'))
 
 def init_firebase():
     if not firebase_admin._apps:
         try:
-            # Environment variables se credentials uthana
             raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "")
             p_key = raw_key.replace('\\n', '\n').strip('"').strip("'")
             c_email = os.getenv("FIREBASE_CLIENT_EMAIL")
@@ -36,7 +34,6 @@ def home():
 @app.route('/dashboard')
 def dashboard():
     uid = request.args.get('id', 'Guest')
-    # Bot se name pass hoga, nahi toh 'Explorer' dikhega
     user_name = request.args.get('name', 'Explorer') 
     pts = 0
     ad_link = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
