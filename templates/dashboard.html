@@ -4,11 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Ultimate Media Search • Dashboard</title>
-  
-  <!-- Firebase SDK (Client) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  
   <style>
     :root{--primary:#6366f1;--primary-hover:#4f46e5;--dark:#0f172a;--card:#1e293b;--text:#f1f5f9;--muted:#94a3b8;--success:#22c55e;--border:#334155;--grad:linear-gradient(135deg,#6366f1,#8b5cf6,#a855f7)}
     *{margin:0;padding:0;box-sizing:border-box}
@@ -40,7 +37,6 @@
 </head>
 <body>
   <div class="container">
-    <!-- Header -->
     <header class="header">
       <div class="logo">🔍 Ultimate Media Search</div>
       <div class="user-info">
@@ -49,7 +45,6 @@
       </div>
     </header>
 
-    <!-- Stats -->
     <div class="stats">
       <div class="stat-card">
         <div class="stat-label">Total Points</div>
@@ -68,26 +63,13 @@
       </div>
     </div>
 
-    <!-- Earn Section -->
     <div class="section">
       <h2 class="section-title">💎 Earn Points</h2>
       <div class="tasks">
-        <div class="task">
-          <div class="task-info"><h4>📺 Watch Advertisement</h4><p>View a short ad</p></div>
-          <div class="reward">+25 PTS</div>
-        </div>
-        <div class="task">
-          <div class="task-info"><h4>▶️ YouTube Subscribe</h4><p>Follow our channel</p></div>
-          <div class="reward">+100 PTS</div>
-        </div>
-        <div class="task">
-          <div class="task-info"><h4>📷 Instagram Follow</h4><p>Connect on Instagram</p></div>
-          <div class="reward">+100 PTS</div>
-        </div>
-        <div class="task">
-          <div class="task-info"><h4>📘 Facebook Like</h4><p>Like our page</p></div>
-          <div class="reward">+100 PTS</div>
-        </div>
+        <div class="task"><div class="task-info"><h4>📺 Watch Advertisement</h4><p>View a short ad</p></div><div class="reward">+25 PTS</div></div>
+        <div class="task"><div class="task-info"><h4>▶️ YouTube Subscribe</h4><p>Follow our channel</p></div><div class="reward">+100 PTS</div></div>
+        <div class="task"><div class="task-info"><h4>📷 Instagram Follow</h4><p>Connect on Instagram</p></div><div class="reward">+100 PTS</div></div>
+        <div class="task"><div class="task-info"><h4>📘 Facebook Like</h4><p>Like our page</p></div><div class="reward">+100 PTS</div></div>
       </div>
       
       <div style="margin-top:20px;display:grid;gap:10px">
@@ -106,7 +88,6 @@
       </div>
     </div>
 
-    <!-- Withdraw -->
     <div class="section withdraw">
       <h2 class="section-title" style="justify-content:center">💰 Withdraw</h2>
       <div class="withdraw-amount" id="withdrawAmt">$0.00</div>
@@ -115,11 +96,9 @@
     </div>
   </div>
 
-  <!-- Toast -->
   <div id="toast" class="toast"><span id="toastMsg"></span></div>
 
   <script>
-    // Firebase Config (Client SDK)
     const firebaseConfig = {
       apiKey: "AIzaSyD50eWvysruXgtgpDhhCVE2zdbSbLkFBwk",
       authDomain: "ultimatemediasearch.firebaseapp.com",
@@ -132,12 +111,9 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // URL Params
     const params = new URLSearchParams(window.location.search);
     const userId = params.get('id');
     const userName = params.get('name') || 'User';
-
-    // DOM
     const $ = id => document.getElementById(id);
     const els = {
       name: $('userName'), uid: $('userId'), points: $('points'), usd: $('usd'),
@@ -145,11 +121,9 @@
       withdrawBtn: $('withdrawBtn'), adBtn: $('adBtn'), adText: $('adText'), adTimer: $('adTimer')
     };
 
-    // Constants
     const PTS_PER_USD = 100, AD_PTS = 25, SOCIAL_PTS = 100, AD_SEC = 30;
     let claimed = JSON.parse(localStorage.getItem(`claimed_${userId}`) || '{}');
 
-    // Init
     document.addEventListener('DOMContentLoaded', () => {
       if (!userId) { showToast('Invalid link. Open from Telegram bot.', 'error'); return; }
       els.name.textContent = userName;
@@ -158,60 +132,62 @@
       updateSocialUI();
     });
 
-    // Real-time Firebase listener
     function loadUserData() {
       db.ref(`users/${userId}`).on('value', snap => {
         const data = snap.val();
         if (!data) return;
         const pts = data.points || 0, usd = (pts / PTS_PER_USD).toFixed(2);
-        animate(els.points, parseInt(els.points.textContent)||0, pts, 400);
+        animateValue(els.points, parseInt(els.points.textContent)||0, pts, 400);
         els.usd.textContent = `$${usd}`;
         els.withdrawAmt.textContent = `$${usd}`;
         els.withdrawBtn.disabled = pts < PTS_PER_USD;
-        // Count history entries as completed tasks
         const history = data.history || {};
         els.tasks.textContent = Object.keys(history).length;
       }, err => { console.error('Firebase:', err); showToast('Connection error', 'error'); });
     }
 
-    // Animate number
-    function animate(el, start, end, dur) {
-      let t0 = null;
-      const step = ts => {
-        if (!t0) t0 = ts;
-        const p = Math.min((ts - t0) / dur, 1);
-        el.textContent = Math.floor(p * (end - start) + start);
-        if (p < 1) requestAnimationFrame(step);
+    function animateValue(el, start, end, duration) {
+      let startTimestamp = null;
+      const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const value = Math.floor(progress * (end - start) + start);
+        el.textContent = value;
+        if (progress < 1) window.requestAnimationFrame(step);
       };
-      requestAnimationFrame(step);
+      window.requestAnimationFrame(step);
     }
 
-    // Social buttons state
     function updateSocialUI() {
-      ['youtube','instagram','facebook'].forEach(p => {
-        const btn = $(p === 'youtube' ? 'ytBtn' : p === 'instagram' ? 'igBtn' : 'fbBtn');
-        if (btn && claimed[p]) {
+      const tasks = [
+        {platform: 'youtube', btnId: 'ytBtn'},
+        {platform: 'instagram', btnId: 'igBtn'},
+        {platform: 'facebook', btnId: 'fbBtn'}
+      ];
+      tasks.forEach(task => {
+        const btn = document.getElementById(task.btnId);
+        if (btn && claimed[task.platform]) {
           btn.classList.add('claimed');
-          btn.lastElementChild.textContent = '✓ Claimed';
-          btn.onclick = e => { e.preventDefault(); showToast('Already claimed!', 'error'); };
+          const badge = btn.querySelector('span:last-child');
+          if (badge) badge.textContent = '✓ Claimed';
+          btn.style.pointerEvents = 'none';
+          btn.style.opacity = '0.6';
         }
       });
     }
 
-    // Watch Ad (30s timer)
     function watchAd() {
       if (els.adBtn.disabled) return;
       els.adBtn.disabled = true;
-      els.adText.textContent = 'Watching Ad...';
+      els.adText.textContent = '⏳ Watching Ad...';
       els.adTimer.style.display = 'inline';
-      let sec = AD_SEC;
-      els.adTimer.textContent = `${sec}s`;
-      
-      const iv = setInterval(() => {
-        sec--;
-        els.adTimer.textContent = `${sec}s`;
-        if (sec <= 0) {
-          clearInterval(iv);
+      let seconds = AD_SEC;
+      els.adTimer.textContent = `${seconds}s`;
+      const timer = setInterval(() => {
+        seconds--;
+        els.adTimer.textContent = `${seconds}s`;
+        if (seconds <= 0) {
+          clearInterval(timer);
           completeAd();
         }
       }, 1000);
@@ -221,46 +197,61 @@
       try {
         window.open('https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b', '_blank');
         const res = await fetch('/api/earn/ad', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
+          method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({user_id: parseInt(userId)})
         });
         const data = await res.json();
-        if (data.success) showToast(`🎉 +${AD_PTS} Points!`, 'success');
+        if (data.success) showToast(`🎉 +${AD_PTS} Points Added!`, 'success');
         else throw new Error(data.error);
-      } catch(e) { console.error(e); showToast('Failed to claim', 'error'); }
-      finally {
+      } catch(e) {
+        console.error('Ad claim error:', e);
+        showToast('❌ Failed to claim points', 'error');
+      } finally {
         els.adBtn.disabled = false;
-        els.adText.textContent = 'Watch Ad & Earn 25 Points';
+        els.adText.textContent = '🎬 Watch Ad & Earn 25 Points';
         els.adTimer.style.display = 'none';
       }
     }
 
-    // Claim social task
     async function claimSocial(platform, el) {
-      if (claimed[platform]) { showToast('Already claimed!', 'error'); return; }
+      if (claimed[platform]) { showToast('✅ Already claimed!', 'error'); return; }
       claimed[platform] = true;
       localStorage.setItem(`claimed_${userId}`, JSON.stringify(claimed));
       updateSocialUI();
-      
       try {
         const res = await fetch('/api/earn/social', {
-          method: 'POST', headers: {'Content-Type':'application/json'},
+          method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({user_id: parseInt(userId), task: platform})
         });
         const data = await res.json();
-        if (data.success) showToast(`🎉 +${SOCIAL_PTS} Points!`, 'success');
-        else { claimed[platform]=false; localStorage.setItem(`claimed_${userId}`,JSON.stringify(claimed)); updateSocialUI(); throw new Error(data.error); }
-      } catch(e) { console.error(e); showToast('Claim failed', 'error'); }
+        if (data.success) showToast(`🎉 +${SOCIAL_PTS} Points Added!`, 'success');
+        else {
+          claimed[platform] = false;
+          localStorage.setItem(`claimed_${userId}`, JSON.stringify(claimed));
+          updateSocialUI();
+          throw new Error(data.error);
+        }
+      } catch(e) {
+        console.error('Social claim error:', e);
+        showToast('❌ Claim failed. Try again!', 'error');
+      }
     }
 
-    // Withdrawal
-    function requestWithdraw() { showToast('Request submitted! Check Telegram for updates.', 'success'); }
+    function requestWithdraw() {
+      const points = parseInt(els.points.textContent) || 0;
+      if (points < PTS_PER_USD) {
+        showToast('💰 Need 100 points to withdraw!', 'error');
+        return;
+      }
+      showToast('✅ Withdrawal request submitted! Check Telegram.', 'success');
+    }
 
-    // Toast
-    function showToast(msg, type='success') {
-      const t = $('toast'), m = $('toastMsg');
-      m.textContent = msg; t.className = `toast ${type}`; t.style.display = 'block';
-      setTimeout(() => t.style.display = 'none', 4000);
+    function showToast(message, type = 'success') {
+      const toast = $('toast'), msg = $('toastMsg');
+      msg.textContent = message;
+      toast.className = `toast ${type}`;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 4000);
     }
   </script>
 </body>
