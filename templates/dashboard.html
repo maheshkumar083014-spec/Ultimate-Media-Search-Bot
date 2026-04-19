@@ -1,80 +1,577 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body{background:#020617;color:white;font-family:sans-serif;text-align:center}
-.card{background:#1e293b;margin:15px;padding:20px;border-radius:15px}
-.btn{padding:12px;border:none;border-radius:20px;background:#0ea5e9;color:white;width:100%}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ultimate Media Search - Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .greeting {
+            font-size: 14px;
+            color: #38bdf8;
+            margin-bottom: 5px;
+        }
+
+        .username {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .uid {
+            font-size: 12px;
+            color: #94a3b8;
+            font-family: monospace;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #38bdf8;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .section {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #38bdf8;
+        }
+
+        .progress-bar {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 10px;
+            height: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #38bdf8 0%, #0ea5e9 100%);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        .ad-button {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            border: none;
+            border-radius: 15px;
+            padding: 18px;
+            width: 100%;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .ad-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(14, 165, 233, 0.3);
+        }
+
+        .ad-button:disabled {
+            background: linear-gradient(135deg, #475569 0%, #334155 100%);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .timer {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .social-mission {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .mission-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mission-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .youtube { background: #ef4444; }
+        .instagram { background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
+        .facebook { background: #1877f2; }
+
+        .mission-text {
+            font-weight: 500;
+        }
+
+        .verify-btn {
+            background: rgba(56, 189, 248, 0.2);
+            border: 1px solid #38bdf8;
+            color: #38bdf8;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .verify-btn:hover {
+            background: #38bdf8;
+            color: #0f172a;
+        }
+
+        .verify-btn.completed {
+            background: #22c55e;
+            border-color: #22c55e;
+            color: white;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #22c55e;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #38bdf8;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            color: #0f172a;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
+            transition: transform 0.2s;
+        }
+
+        .refresh-btn:hover {
+            transform: rotate(180deg);
+        }
+
+        @media (max-width: 480px) {
+            .username { font-size: 24px; }
+            .stat-value { font-size: 28px; }
+        }
+    </style>
 </head>
-
 <body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="greeting">Good Morning,</div>
+            <div class="username" id="username">Explorer! 👋</div>
+            <div class="uid" id="uid">UID: Loading...</div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="points">0</div>
+                    <div class="stat-label">Points</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="earnings">$0.00</div>
+                    <div class="stat-label">Earnings</div>
+                </div>
+            </div>
+        </div>
 
-<h2 id="name"></h2>
-<p>UID: <span id="uid"></span></p>
+        <!-- Daily Ad Progress -->
+        <div class="section">
+            <div class="section-title">
+                Daily Ad Progress
+                <span class="progress-text" id="adProgress">0/10</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="adProgressBar" style="width: 0%"></div>
+            </div>
+            <button class="ad-button" id="watchAdBtn" onclick="watchAd()">
+                <i class="fas fa-play-circle"></i>
+                <span>Watch Ad & Earn +25 Pts</span>
+            </button>
+        </div>
 
-<div class="card">
-<h3>Points: <span id="points">0</span></h3>
-<h3>$ <span id="money">0</span></h3>
-</div>
+        <!-- Social Missions -->
+        <div class="section">
+            <div class="section-title">SOCIAL MISSIONS</div>
+            
+            <div class="social-mission">
+                <div class="mission-info">
+                    <div class="mission-icon youtube">
+                        <i class="fab fa-youtube" style="color: white;"></i>
+                    </div>
+                    <div class="mission-text">YouTube Sub</div>
+                </div>
+                <button class="verify-btn" id="youtubeBtn" onclick="verifySocial('youtube')">
+                    Verify +100
+                </button>
+            </div>
 
-<div class="card">
-<button class="btn" onclick="watchAd()">Watch Ad +25</button>
-<p id="timer"></p>
-</div>
+            <div class="social-mission">
+                <div class="mission-info">
+                    <div class="mission-icon instagram">
+                        <i class="fab fa-instagram" style="color: white;"></i>
+                    </div>
+                    <div class="mission-text">Instagram Follow</div>
+                </div>
+                <button class="verify-btn" id="instagramBtn" onclick="verifySocial('instagram')">
+                    Verify +100
+                </button>
+            </div>
 
-<div class="card">
-<button class="btn" onclick="refer()">Copy Referral</button>
-</div>
+            <div class="social-mission">
+                <div class="mission-info">
+                    <div class="mission-icon facebook">
+                        <i class="fab fa-facebook-f" style="color: white;"></i>
+                    </div>
+                    <div class="mission-text">Facebook Like</div>
+                </div>
+                <button class="verify-btn" id="facebookBtn" onclick="verifySocial('facebook')">
+                    Verify +100
+                </button>
+            </div>
+        </div>
+    </div>
 
-<div class="card">
-<input id="upi" placeholder="Enter UPI">
-<button class="btn" onclick="withdraw()">Withdraw</button>
-</div>
+    <button class="refresh-btn" onclick="refreshData()" title="Refresh">
+        <i class="fas fa-sync-alt"></i>
+    </button>
 
-<script>
-const p=new URLSearchParams(location.search)
-const uid=p.get("id")
-const name=p.get("name")
+    <div class="toast" id="toast"></div>
 
-document.getElementById("uid").innerText=uid
-document.getElementById("name").innerText="Welcome "+name
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
-function load(){
- fetch("/get_user/"+uid).then(r=>r.json()).then(d=>{
-  let pts=d.points||0
-  document.getElementById("points").innerText=pts
-  document.getElementById("money").innerText=(pts/100).toFixed(2)
- })
-}
-setInterval(load,2000)
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD50eWvysruXgtgpDhhCVE2zdbSbLkFBwk",
+            authDomain: "ultimatemediasearch.firebaseapp.com",
+            databaseURL: "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "ultimatemediasearch",
+            storageBucket: "ultimatemediasearch.firebasestorage.app",
+            messagingSenderId: "123003124713",
+            appId: "1:123003124713:web:c738c97b2772b112822978"
+        };
 
-function watchAd(){
- let t=30
- let x=setInterval(()=>{
-  document.getElementById("timer").innerText="Wait "+t
-  t--
-  if(t<0){
-   clearInterval(x)
-   fetch("/add_points",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({uid:uid,points:25})})
-  }
- },1000)
- window.open("https://horizontallyresearchpolar.com/")
-}
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-function refer(){
- let link="https://t.me/YOUR_BOT?start="+uid
- navigator.clipboard.writeText(link)
- alert("Copied referral link")
-}
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const uid = urlParams.get('id');
+        const name = urlParams.get('name') || 'Explorer';
 
-function withdraw(){
- let upi=document.getElementById("upi").value
- fetch("/withdraw",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({uid:uid,upi:upi})})
- alert("Request Sent")
-}
-</script>
+        // Update UI with user data
+        document.getElementById('username').innerHTML = `${name}! 👋`;
+        document.getElementById('uid').textContent = `UID: ${uid}`;
 
+        let isWatchingAd = false;
+        let adTimer = null;
+
+        // Real-time listener
+        function listenToUser() {
+            const userRef = database.ref(`users/${uid}`);
+            userRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    updateUI(data);
+                }
+            });
+        }
+
+        function updateUI(data) {
+            document.getElementById('points').textContent = data.points || 0;
+            document.getElementById('earnings').textContent = `$${((data.points || 0) / 100).toFixed(2)}`;
+            
+            const adsWatched = data.ads_watched_today || 0;
+            document.getElementById('adProgress').textContent = `${adsWatched}/10`;
+            document.getElementById('adProgressBar').style.width = `${(adsWatched / 10) * 100}%`;
+
+            // Update social buttons
+            if (data.social_tasks) {
+                updateSocialButton('youtube', data.social_tasks.youtube);
+                updateSocialButton('instagram', data.social_tasks.instagram);
+                updateSocialButton('facebook', data.social_tasks.facebook);
+            }
+
+            // Check if can watch ad
+            checkAdAvailability(data);
+        }
+
+        function updateSocialButton(platform, completed) {
+            const btn = document.getElementById(`${platform}Btn`);
+            if (completed) {
+                btn.classList.add('completed');
+                btn.innerHTML = '<i class="fas fa-check"></i> Completed';
+                btn.disabled = true;
+            } else {
+                btn.classList.remove('completed');
+                btn.innerHTML = 'Verify +100';
+                btn.disabled = false;
+            }
+        }
+
+        function checkAdAvailability(data) {
+            const btn = document.getElementById('watchAdBtn');
+            const adsWatched = data.ads_watched_today || 0;
+            const today = new Date().toDateString();
+            const lastDate = data.last_ad_date || '';
+
+            if (adsWatched >= 10) {
+                btn.disabled = true;
+                btn.innerHTML = '<span>Daily Limit Reached</span>';
+            } else if (lastDate === today && data.cooldown_until) {
+                const cooldown = new Date(data.cooldown_until);
+                const now = new Date();
+                if (cooldown > now) {
+                    const seconds = Math.ceil((cooldown - now) / 1000);
+                    startAdTimer(seconds);
+                } else {
+                    resetAdButton();
+                }
+            } else {
+                resetAdButton();
+            }
+        }
+
+        function resetAdButton() {
+            const btn = document.getElementById('watchAdBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-play-circle"></i><span>Watch Ad & Earn +25 Pts</span>';
+        }
+
+        function startAdTimer(seconds) {
+            isWatchingAd = true;
+            const btn = document.getElementById('watchAdBtn');
+            
+            adTimer = setInterval(() => {
+                seconds--;
+                if (seconds <= 0) {
+                    clearInterval(adTimer);
+                    resetAdButton();
+                    isWatchingAd = false;
+                } else {
+                    btn.disabled = true;
+                    btn.innerHTML = `<i class="fas fa-clock"></i><span class="timer">Wait ${seconds}s</span>`;
+                }
+            }, 1000);
+        }
+
+        async function watchAd() {
+            if (isWatchingAd) return;
+
+            const userRef = database.ref(`users/${uid}`);
+            const snapshot = await userRef.once('value');
+            const data = snapshot.val();
+            
+            const adsWatched = data.ads_watched_today || 0;
+            if (adsWatched >= 10) {
+                showToast('Daily limit reached! Come back tomorrow.');
+                return;
+            }
+
+            // Open ad link
+            window.open('https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b', '_blank');
+            
+            // Start 30-second timer
+            isWatchingAd = true;
+            startAdTimer(30);
+
+            // Update Firebase after timer
+            setTimeout(async () => {
+                await userRef.transaction((userData) => {
+                    if (userData) {
+                        const today = new Date().toDateString();
+                        if (userData.last_ad_date !== today) {
+                            userData.ads_watched_today = 0;
+                            userData.last_ad_date = today;
+                        }
+                        
+                        if (userData.ads_watched_today < 10) {
+                            userData.points = (userData.points || 0) + 25;
+                            userData.ads_watched_today += 1;
+                            userData.total_earned = (userData.total_earned || 0) + 0.25;
+                        }
+                        
+                        // Set cooldown
+                        const cooldownTime = new Date();
+                        cooldownTime.setSeconds(cooldownTime.getSeconds() + 30);
+                        userData.cooldown_until = cooldownTime.toISOString();
+                    }
+                    return userData;
+                });
+                
+                isWatchingAd = false;
+                showToast('🎉 +25 Points Added!');
+            }, 30000);
+        }
+
+        async function verifySocial(platform) {
+            const btn = document.getElementById(`${platform}Btn`);
+            
+            // Open social link
+            const links = {
+                youtube: 'https://www.youtube.com/@Instagrampost1',
+                instagram: 'https://www.instagram.com/digital_rockstar_m',
+                facebook: 'https://www.facebook.com/profile.php?id=61574378159053'
+            };
+            
+            window.open(links[platform], '_blank');
+            
+            // Show loading
+            btn.innerHTML = '<div class="loading"></div>';
+            btn.disabled = true;
+
+            // Simulate verification delay
+            setTimeout(async () => {
+                const userRef = database.ref(`users/${uid}`);
+                await userRef.transaction((userData) => {
+                    if (userData && !userData.social_tasks[platform]) {
+                        userData.points = (userData.points || 0) + 100;
+                        userData.social_tasks[platform] = true;
+                        userData.total_earned = (userData.total_earned || 0) + 1.0;
+                    }
+                    return userData;
+                });
+                
+                showToast(`🎉 +100 Points for ${platform}!`);
+            }, 3000);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function refreshData() {
+            listenToUser();
+            showToast('Data refreshed!');
+        }
+
+        // Initialize
+        listenToUser();
+    </script>
 </body>
 </html>
