@@ -2,27 +2,52 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Earn Bot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Earn Bot Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
-        body { background: #0f172a; color: white; font-family: 'Outfit', sans-serif; text-align: center; padding: 20px; }
-        .card { background: rgba(255,255,255,0.05); border-radius: 20px; padding: 25px; border: 1px solid rgba(255,255,255,0.1); }
-        .btn { background: #00d2ff; color: white; padding: 15px; border-radius: 12px; display: block; text-decoration: none; margin-top: 20px; font-weight: bold; }
-        .points { font-size: 3rem; color: #00d2ff; margin: 10px 0; }
+        body { background: #050a18; color: white; font-family: 'Outfit', sans-serif; display: flex; justify-content: center; padding: 20px; }
+        .card { width: 100%; max-width: 400px; background: rgba(255,255,255,0.03); backdrop-filter: blur(10px); border-radius: 24px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .pts-box { font-size: 3rem; color: #00d2ff; font-weight: 700; margin: 10px 0; }
+        .btn-main { width: 100%; padding: 16px; border-radius: 16px; border: none; background: linear-gradient(90deg, #00d2ff, #3a7bd5); color: white; font-weight: 600; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="card">
-        <p>Welcome, {{ user_name }}!</p>
-        <div class="points" id="pts">{{ pts }}</div>
-        <p>Points Earned</p>
-        <a href="#" class="btn" onclick="watchAd()">🚀 Watch Ad & Earn</a>
+        <p>Good Day, {{ user_name }}!</p>
+        <p style="font-size: 0.7rem; color: #64748b;">UID: {{ uid }}</p>
+        <div class="pts-box" id="pointsVal">{{ pts }}</div>
+        <p>POINTS BALANCE</p>
+        <button class="btn-main" id="adBtn" onclick="watchAd()">🚀 Watch Ad (+25 Pts)</button>
+        <p id="timerMsg" style="font-size: 0.8rem; margin-top: 10px; color: #94a3b8;"></p>
     </div>
+
     <script>
+        const firebaseConfig = { apiKey: "AIzaSyD50eWvysruXgtgpDhhCVE2zdbSbLkFBwk", authDomain: "ultimatemediasearch.firebaseapp.com", databaseURL: "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/", projectId: "ultimatemediasearch", storageBucket: "ultimatemediasearch.appspot.com", messagingSenderId: "123003124713", appId: "1:123003124713:web:c738c97b2772b112822978" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const userId = "{{ uid }}";
+
         function watchAd() {
             window.open("https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b", "_blank");
-            alert("Stay for 30s to claim rewards!");
+            let s = 30;
+            const btn = document.getElementById('adBtn');
+            btn.disabled = true;
+            const t = setInterval(() => {
+                s--;
+                document.getElementById('timerMsg').innerText = `Claiming in ${s}s...`;
+                if(s <= 0) {
+                    clearInterval(t);
+                    db.ref('users/' + userId).transaction(c => {
+                        if(c) { c.pts = (c.pts || 0) + 25; }
+                        return c;
+                    });
+                    btn.disabled = false;
+                    document.getElementById('timerMsg').innerText = "Points Added!";
+                }
+            }, 1000);
         }
     </script>
 </body>
