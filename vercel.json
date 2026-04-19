@@ -1,7 +1,14 @@
 {
-  "version": 2,
-  "rewrites": [
-    { "source": "/dashboard", "destination": "/api/index.py" },
-    { "source": "/(.*)", "destination": "/api/index.py" }
+  "functions": {
+    "api/index.py": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
+  "routes": [
+    { "src": "/webhook", "dest": "/api/index.py" },
+    { "src": "/dashboard", "dest": "/api/index.py" },
+    { "src": "/api/(.*)", "dest": "/api/index.py" },
+    { "src": "/", "dest": "/api/index.py" }
   ]
 }
