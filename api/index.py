@@ -14,9 +14,11 @@ bot = telebot.TeleBot(TOKEN, threaded=False)
 def init_firebase():
     if not firebase_admin._apps:
         try:
+            # Vercel Environment Variables check karein
             raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "")
             p_key = raw_key.replace('\\n', '\n').strip('"').strip("'")
             c_email = os.getenv("FIREBASE_CLIENT_EMAIL")
+            
             if p_key and c_email:
                 cred = credentials.Certificate({
                     "type": "service_account",
@@ -28,37 +30,33 @@ def init_firebase():
                 firebase_admin.initialize_app(cred, {
                     'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'
                 })
-        except: pass
+        except Exception as e:
+            print(f"Firebase Fail: {e}")
 
 @app.route('/', methods=['POST', 'GET'])
 def webhook():
     if request.method == 'POST':
         try:
-            json_str = request.get_data().decode('utf-8')
-            update = telebot.types.Update.de_json(json_str)
+            data = request.get_data().decode('utf-8')
+            update = telebot.types.Update.de_json(data)
             bot.process_new_updates([update])
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Update Error: {e}")
         return "OK", 200
-    return "<h1>Bot is Online! 🚀</h1>", 200
+    return "<h1>Bot Status: Running 🚀</h1>", 200
 
 @bot.message_handler(commands=['start'])
-def handle_start(message):
+def welcome(message):
     uid = message.chat.id
     name = message.from_user.first_name
-    # Dashboard URL with parameters
+    # Aapka domain screenshot se confirm kiya gaya hai
     dash_url = f"https://ultimate-media-search-bot-t7kj.vercel.app/dashboard?id={uid}&name={name}"
     
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(telebot.types.InlineKeyboardButton("🚀 Open Dashboard", url=dash_url))
     
-    welcome_text = (
-        f"<b>Hello {name}! 👋</b>\n\n"
-        "Welcome to <b>Ultimate Earn Bot</b>.\n"
-        "Daily ads dekhein aur points earn karein.\n\n"
-        "👇 Niche button par click karke shuru karein!"
-    )
-    bot.send_message(uid, welcome_text, parse_mode="HTML", reply_markup=markup)
+    bot.send_message(uid, f"<b>Hello {name}! 👋</b>\nWelcome to Ultimate Earn Bot.", 
+                     parse_mode="HTML", reply_markup=markup)
 
 @app.route('/dashboard')
 def dashboard():
