@@ -40,19 +40,25 @@ def webhook():
         except Exception as e:
             print(f"Error: {e}")
         return "OK", 200
-    return "Bot Online 🚀", 200
+    return "<h1>Bot is Online! 🚀</h1>", 200
 
 @bot.message_handler(commands=['start'])
-def welcome(message):
+def handle_start(message):
     uid = message.chat.id
     name = message.from_user.first_name
+    # Dashboard URL with parameters
     dash_url = f"https://ultimate-media-search-bot-t7kj.vercel.app/dashboard?id={uid}&name={name}"
     
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(telebot.types.InlineKeyboardButton("🚀 Open Dashboard", url=dash_url))
     
-    bot.send_message(uid, f"<b>Hello {name}! 👋</b>\nWelcome to Ultimate Earn Bot.", 
-                     parse_mode="HTML", reply_markup=markup)
+    welcome_text = (
+        f"<b>Hello {name}! 👋</b>\n\n"
+        "Welcome to <b>Ultimate Earn Bot</b>.\n"
+        "Daily ads dekhein aur points earn karein.\n\n"
+        "👇 Niche button par click karke shuru karein!"
+    )
+    bot.send_message(uid, welcome_text, parse_mode="HTML", reply_markup=markup)
 
 @app.route('/dashboard')
 def dashboard():
