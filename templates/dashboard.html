@@ -2,207 +2,77 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard</title>
-
 <style>
-body {
-  margin:0;
-  font-family: 'Segoe UI', sans-serif;
-  background: linear-gradient(180deg,#020617,#020617,#0f172a);
-  color:white;
-}
-
-/* CARD DESIGN */
-.card {
-  margin:15px;
-  padding:20px;
-  border-radius:20px;
-  background: linear-gradient(145deg,#0f172a,#1e293b);
-  box-shadow: 0 0 25px rgba(0,255,255,0.1);
-}
-
-/* HEADER */
-.header h1 {
-  font-size:26px;
-}
-.header span {
-  color:#22d3ee;
-}
-
-/* POINT BOX */
-.box {
-  display:flex;
-  justify-content:space-between;
-  margin-top:15px;
-}
-.mini {
-  width:48%;
-  padding:20px;
-  border-radius:15px;
-  background:#020617;
-  text-align:center;
-}
-.mini h2 {
-  color:#22d3ee;
-}
-
-/* BUTTON */
-.btn {
-  width:100%;
-  padding:15px;
-  border:none;
-  border-radius:30px;
-  background:linear-gradient(90deg,#06b6d4,#3b82f6);
-  color:white;
-  font-size:16px;
-}
-
-/* SOCIAL */
-.social {
-  display:flex;
-  justify-content:space-between;
-  margin-top:10px;
-  padding:15px;
-  background:#020617;
-  border-radius:15px;
-}
-.verify {
-  background:#0ea5e9;
-  padding:8px 15px;
-  border-radius:20px;
-}
-
-/* PROGRESS */
-.progress {
-  height:8px;
-  background:#020617;
-  border-radius:10px;
-  margin-top:10px;
-}
-.bar {
-  height:8px;
-  width:0%;
-  background:#22d3ee;
-  border-radius:10px;
-}
+body{background:#020617;color:white;font-family:sans-serif;text-align:center}
+.card{background:#1e293b;margin:15px;padding:20px;border-radius:15px}
+.btn{padding:12px;border:none;border-radius:20px;background:#0ea5e9;color:white;width:100%}
 </style>
 </head>
 
 <body>
 
-<div class="card header">
-  <p id="greet"></p>
-  <h1>Explorer 👋</h1>
-  <p>UID: <span id="uid"></span></p>
+<h2 id="name"></h2>
+<p>UID: <span id="uid"></span></p>
 
-  <div class="box">
-    <div class="mini">
-      <h2 id="points">0</h2>
-      <p>POINTS</p>
-    </div>
-    <div class="mini">
-      <h2>$<span id="money">0.00</span></h2>
-      <p>EARNINGS</p>
-    </div>
-  </div>
+<div class="card">
+<h3>Points: <span id="points">0</span></h3>
+<h3>$ <span id="money">0</span></h3>
 </div>
 
 <div class="card">
-  <p>Daily Ad Progress <span id="count">0</span>/10</p>
-  <div class="progress"><div class="bar" id="bar"></div></div>
-
-  <br>
-  <button class="btn" onclick="startAd()">▶ Watch Ad & Earn +25</button>
-  <p id="timer"></p>
+<button class="btn" onclick="watchAd()">Watch Ad +25</button>
+<p id="timer"></p>
 </div>
 
 <div class="card">
-  <h3>SOCIAL MISSIONS</h3>
+<button class="btn" onclick="refer()">Copy Referral</button>
+</div>
 
-  <div class="social">
-    <span>▶ YouTube Sub</span>
-    <button class="verify" onclick="task(100,'yt')">Verify +100</button>
-  </div>
-
-  <div class="social">
-    <span>📸 Instagram Follow</span>
-    <button class="verify" onclick="task(100,'ig')">Verify +100</button>
-  </div>
-
-  <div class="social">
-    <span>📘 Facebook Like</span>
-    <button class="verify" onclick="task(100,'fb')">Verify +100</button>
-  </div>
+<div class="card">
+<input id="upi" placeholder="Enter UPI">
+<button class="btn" onclick="withdraw()">Withdraw</button>
 </div>
 
 <script>
-const params = new URLSearchParams(window.location.search);
-const uid = params.get("id");
-const name = params.get("name");
+const p=new URLSearchParams(location.search)
+const uid=p.get("id")
+const name=p.get("name")
 
-document.getElementById("uid").innerText = uid;
-document.getElementById("greet").innerText = "Good Morning, " + name;
+document.getElementById("uid").innerText=uid
+document.getElementById("name").innerText="Welcome "+name
 
-let adCount = 0;
-
-/* FETCH POINTS */
 function load(){
- fetch(`/get_points/${uid}`)
- .then(r=>r.json())
- .then(d=>{
-   document.getElementById("points").innerText=d.points;
-   document.getElementById("money").innerText=(d.points/100).toFixed(2);
- });
+ fetch("/get_user/"+uid).then(r=>r.json()).then(d=>{
+  let pts=d.points||0
+  document.getElementById("points").innerText=pts
+  document.getElementById("money").innerText=(pts/100).toFixed(2)
+ })
 }
-setInterval(load,2000);
+setInterval(load,2000)
 
-/* AD TIMER */
-function startAd(){
- if(adCount>=10){
-   alert("Daily limit reached");
-   return;
- }
-
- let t=30;
- let timer=document.getElementById("timer");
-
+function watchAd(){
+ let t=30
  let x=setInterval(()=>{
-   timer.innerText="Wait "+t+" sec...";
-   t--;
-
-   if(t<0){
-     clearInterval(x);
-
-     fetch("/add_points",{
-       method:"POST",
-       headers:{"Content-Type":"application/json"},
-       body:JSON.stringify({uid:uid,points:25})
-     });
-
-     adCount++;
-     document.getElementById("count").innerText=adCount;
-     document.getElementById("bar").style.width=(adCount*10)+"%";
-
-     timer.innerText="✅ Points Added!";
-   }
- },1000);
-
- window.open("https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b");
+  document.getElementById("timer").innerText="Wait "+t
+  t--
+  if(t<0){
+   clearInterval(x)
+   fetch("/add_points",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({uid:uid,points:25})})
+  }
+ },1000)
+ window.open("https://horizontallyresearchpolar.com/")
 }
 
-/* SOCIAL TASK */
-function task(p,type){
- if(type=="yt") window.open("https://www.youtube.com/@Instagrampost1");
- if(type=="ig") window.open("https://www.instagram.com/digital_rockstar_m");
- if(type=="fb") window.open("https://www.facebook.com/profile.php?id=61574378159053");
+function refer(){
+ let link="https://t.me/YOUR_BOT?start="+uid
+ navigator.clipboard.writeText(link)
+ alert("Copied referral link")
+}
 
- fetch("/add_points",{
-   method:"POST",
-   headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({uid:uid,points:p})
- });
-
- alert("✅ Task Completed +"+p);
+function withdraw(){
+ let upi=document.getElementById("upi").value
+ fetch("/withdraw",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({uid:uid,upi:upi})})
+ alert("Request Sent")
 }
 </script>
 
