@@ -1,45 +1,18 @@
-import os
-import firebase_admin
-from firebase_admin import credentials, db
-from flask import Flask, request, render_template
+<div class="welcome-section" style="text-align: left; margin-bottom: 20px;">
+    <h1 id="greeting" style="font-size: 0.9rem; color: var(--primary); font-weight: 400; margin: 0;">Loading...</h1>
+    <h2 style="font-size: 1.6rem; margin: 0; color: #fff;">{{ user_name }}! 👋</h2>
+</div>
 
-# CRITICAL: Flask ko batana padega ki templates folder api ke bahar hai
-app = Flask(__name__, template_folder='../templates')
-
-def init_firebase():
-    if not firebase_admin._apps:
-        try:
-            p_key = os.getenv("FIREBASE_PRIVATE_KEY").replace('\\n', '\n').strip('"').strip("'")
-            cred = credentials.Certificate({
-                "type": "service_account",
-                "project_id": "ultimatemediasearch",
-                "private_key": p_key,
-                "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
-                "token_uri": "https://oauth2.googleapis.com/token",
-            })
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'
-            })
-        except Exception as e:
-            print(f"Firebase Init Error: {e}")
-
-@app.route('/')
-def home():
-    return "Ultimate Media Search Bot is Live!"
-
-@app.route('/dashboard')
-def dashboard():
-    uid = request.args.get('id', 'Guest')
-    pts = 0
-    # Aapka diya hua smart link
-    ad_link = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
-    
-    try:
-        init_firebase()
-        u_data = db.reference(f'users/{uid}').get()
-        if u_data:
-            pts = u_data.get('pts', 0)
-    except:
-        pts = 0
-
-    return render_template('dashboard.html', pts=pts, uid=uid, ad_link=ad_link)
+<script>
+    // Time ke hisaab se greeting change karne ka script
+    function setGreeting() {
+        const hour = new Date().getHours();
+        let welcomeText = "";
+        if (hour < 12) welcomeText = "Good Morning,";
+        else if (hour < 17) welcomeText = "Good Afternoon,";
+        else welcomeText = "Good Evening,";
+        
+        document.getElementById('greeting').innerText = welcomeText;
+    }
+    setGreeting();
+</script>
