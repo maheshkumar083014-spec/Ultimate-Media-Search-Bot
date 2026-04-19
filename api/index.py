@@ -4,63 +4,67 @@ import firebase_admin
 from firebase_admin import credentials, db
 from flask import Flask, request, render_template
 
-app = Flask(__name__, 
-            template_folder=os.path.join(os.path.dirname(__file__), '../templates'))
+# Path fix for Vercel
+template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'templates'))
+app = Flask(__name__, template_folder=template_dir)
 
-# CORRECT TOKEN
+# BOT CONFIG
 TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
 def init_firebase():
     if not firebase_admin._apps:
         try:
-            # Vercel Environment Variables check karein
-            raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "")
-            p_key = raw_key.replace('\\n', '\n').strip('"').strip("'")
-            c_email = os.getenv("FIREBASE_CLIENT_EMAIL")
-            
-            if p_key and c_email:
+            # Firebase Env Variables are mandatory on Vercel
+            raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "").replace('\\n', '\n')
+            email = os.getenv("FIREBASE_CLIENT_EMAIL")
+            if raw_key and email:
                 cred = credentials.Certificate({
                     "type": "service_account",
                     "project_id": "ultimatemediasearch",
-                    "private_key": p_key,
-                    "client_email": c_email,
+                    "private_key": raw_key,
+                    "client_email": email,
                     "token_uri": "https://oauth2.googleapis.com/token",
                 })
                 firebase_admin.initialize_app(cred, {
                     'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'
                 })
-        except Exception as e:
-            print(f"Firebase Fail: {e}")
+        except: pass
 
 @app.route('/', methods=['POST', 'GET'])
 def webhook():
     if request.method == 'POST':
         try:
-            data = request.get_data().decode('utf-8')
-            update = telebot.types.Update.de_json(data)
+            json_str = request.get_data().decode('utf-8')
+            update = telebot.types.Update.de_json(json_str)
             bot.process_new_updates([update])
         except Exception as e:
-            print(f"Update Error: {e}")
+            print(f"Webhook Error: {e}")
         return "OK", 200
-    return "<h1>Bot Status: Running 🚀</h1>", 200
+    return "<h1>Bot is Online 🚀</h1>", 200
 
 @bot.message_handler(commands=['start'])
-def welcome(message):
+def start_msg(message):
     uid = message.chat.id
     name = message.from_user.first_name
-    # Aapka domain screenshot se confirm kiya gaya hai
+    # Dynamic URL with user data
     dash_url = f"https://ultimate-media-search-bot-t7kj.vercel.app/dashboard?id={uid}&name={name}"
     
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(telebot.types.InlineKeyboardButton("🚀 Open Dashboard", url=dash_url))
     
-    bot.send_message(uid, f"<b>Hello {name}! 👋</b>\nWelcome to Ultimate Earn Bot.", 
-                     parse_mode="HTML", reply_markup=markup)
+    welcome_text = (
+        f"<b>Hello {name}! 👋</b>\n\n"
+        "Welcome to <b>Ultimate Media Earn Bot</b>.\n"
+        "Daily tasks poore karein aur cash earn karein.\n\n"
+        "👇 Dashboard kholne ke liye niche click karein!"
+    )
+    bot.send_message(uid, welcome_text, parse_mode="HTML", reply_markup=markup)
 
 @app.route('/dashboard')
 def dashboard():
-    uid = request.args.get('id', 'Guest')
+    # Getting real data from URL params
+    uid = request.args.get('id', 'Unknown')
     user_name = request.args.get('name', 'Explorer')
     pts = 0
     init_firebase()
