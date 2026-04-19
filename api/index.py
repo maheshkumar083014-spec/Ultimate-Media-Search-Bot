@@ -1,10 +1,16 @@
 import os
+import telebot
 import firebase_admin
 from firebase_admin import credentials, db
 from flask import Flask, request, render_template
 
+# Flask Setup
 app = Flask(__name__, 
             template_folder=os.path.join(os.path.dirname(__file__), '../templates'))
+
+# Bot Setup
+TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
+bot = telebot.TeleBot(TOKEN, threaded=False)
 
 def init_firebase():
     if not firebase_admin._apps:
@@ -27,10 +33,38 @@ def init_firebase():
         except Exception as e:
             print(f"Firebase Error: {e}")
 
-@app.route('/')
-def home():
-    return "Bot is Live! 🚀"
+# --- TELEGRAM WEBHOOK HANDLER ---
+@app.route('/', methods=['POST', 'GET'])
+def webhook():
+    if request.method == 'POST':
+        update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
+        bot.process_new_updates([update])
+        return "OK", 200
+    return "Bot is Live! 🚀", 200
 
+# --- WELCOME MESSAGE LOGIC ---
+@bot.message_handler(commands=['start'])
+def start_message(message):
+    uid = message.chat.id
+    name = message.from_user.first_name
+    
+    # Dashboard Link
+    dash_url = f"https://ultimate-media-search-bot-t7kj.vercel.app/dashboard?id={uid}&name={name}"
+    
+    markup = telebot.types.InlineKeyboardMarkup()
+    markup.add(telebot.types.InlineKeyboardButton("🚀 Open Dashboard", url=dash_url))
+    
+    welcome_text = (
+        f"<b>Hello {name}! 👋</b>\n\n"
+        "Welcome to <b>Ultimate Media Earn Bot</b>.\n"
+        "Yahan aap daily ads dekh kar aur social tasks\n"
+        "poora karke real money earn kar sakte hain.\n\n"
+        "👇 Niche button par click karke dashboard kholein!"
+    )
+    
+    bot.send_message(uid, welcome_text, parse_mode="HTML", reply_markup=markup)
+
+# --- DASHBOARD ROUTE ---
 @app.route('/dashboard')
 def dashboard():
     uid = request.args.get('id', 'Guest')
