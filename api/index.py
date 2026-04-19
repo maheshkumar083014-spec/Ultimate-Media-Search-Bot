@@ -1,170 +1,130 @@
-import os
-import time
+from flask import Flask, request, jsonify, render_template
 import telebot
-from flask import Flask, request, render_template, jsonify
+from telebot import types
 import firebase_admin
 from firebase_admin import credentials, db
+import os
+import requests
+from datetime import datetime
 
-# ---------------- ENV ----------------
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-DB_URL = os.environ.get("FIREBASE_DB_URL")
+app = Flask(__name__)
 
-bot = telebot.TeleBot(BOT_TOKEN)
-app = Flask(__name__, template_folder="../templates")
+# Initialize Telegram Bot
+BOT_TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
-# ---------------- FIREBASE INIT ----------------
-if not firebase_admin._apps:
-    cred = credentials.Certificate({
-        "type": "service_account",
-        "project_id": os.environ.get("PROJECT_ID"),
-        "private_key": os.environ.get("PRIVATE_KEY").replace('\\n', '\n'),
-        "client_email": os.environ.get("CLIENT_EMAIL"),
-    })
-    firebase_admin.initialize_app(cred, {
-        "databaseURL": DB_URL
-    })
+# Initialize Firebase Admin
+cred = credentials.Certificate({
+    "type": "service_account",
+    "project_id": "ultimatemediasearch",
+    "private_key_id": os.environ.get("FIREBASE_PRIVATE_KEY_ID", "dummy"),
+    "private_key": os.environ.get("FIREBASE_PRIVATE_KEY", "-----BEGIN PRIVATE KEY-----\ndummy\n-----END PRIVATE KEY-----\n"),
+    "client_email": "firebase-adminsdk@ultimatemediasearch.iam.gserviceaccount.com",
+    "client_id": os.environ.get("FIREBASE_CLIENT_ID", "dummy"),
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk%40ultimatemediasearch.iam.gserviceaccount.com"
+})
 
-# ---------------- UTIL ----------------
-def user_ref(uid):
-    return db.reference(f"users/{uid}")
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'
+})
 
-def log_error(e):
-    print("ERROR:", e)
+# Routes
+@app.route('/')
+def home():
+    return "Ultimate Media Search Bot API is running!"
 
-# ---------------- START ----------------
-@bot.message_handler(commands=['start'])
-def start(message):
-    try:
-        uid = str(message.from_user.id)
-        name = message.from_user.first_name
-
-        ref = user_ref(uid)
-        if not ref.get():
-            ref.set({
-                "name": name,
-                "points": 0,
-                "referrals": 0,
-                "created": int(time.time())
-            })
-
-        dashboard = f"https://ultimate-media-search-bot-t7kj.vercel.app/dashboard?id={uid}&name={name}"
-
-        markup = telebot.types.InlineKeyboardMarkup()
-        markup.add(
-            telebot.types.InlineKeyboardButton("💎 Start Earning", url=dashboard)
-        )
-
-        bot.send_message(message.chat.id,
-f"""🔥 Welcome {name}
-
-💰 Earn Daily Without Investment
-
-✔ Watch Ads
-✔ Complete Tasks
-✔ Invite Friends
-
-💵 100 Points = $1
-
-⚡ जितना ज्यादा use उतनी ज्यादा earning
-
-👇 Click below to start
-""", reply_markup=markup)
-
-    except Exception as e:
-        log_error(e)
-
-# ---------------- WEBHOOK ----------------
-@app.route("/", methods=["POST"])
+@app.route('/webhook', methods=['POST'])
 def webhook():
-    try:
-        update = telebot.types.Update.de_json(request.get_data().decode("utf-8"))
-        bot.process_new_updates([update])
-    except Exception as e:
-        log_error(e)
-    return "OK"
+    update = telebot.types.Update.de_json(request.stream.read().decode("utf-8"))
+    bot.process_new_updates([update])
+    return jsonify({"status": "ok"}), 200
 
-# ---------------- DASHBOARD ----------------
-@app.route("/dashboard")
+@app.route('/set-webhook', methods=['GET'])
+def set_webhook():
+    webhook_url = request.host_url.rstrip('/') + '/webhook'
+    bot.remove_webhook()
+    bot.set_webhook(url=webhook_url)
+    return jsonify({"status": "webhook set", "url": webhook_url})
+
+@app.route('/dashboard')
 def dashboard():
-    return render_template("dashboard.html")
+    return render_template('dashboard.html')
 
-# ---------------- GET USER ----------------
-@app.route("/get_user/<uid>")
-def get_user(uid):
-    try:
-        data = user_ref(uid).get() or {}
-        return jsonify(data)
-    except Exception as e:
-        log_error(e)
-        return jsonify({"error": str(e)})
-
-# ---------------- ADD POINTS ----------------
-@app.route("/add_points", methods=["POST"])
-def add_points():
-    try:
-        data = request.json
-        uid = data["uid"]
-        points = data["points"]
-
-        ref = user_ref(uid).child("points")
-
-        def transaction(current):
-            return (current or 0) + points
-
-        ref.transaction(transaction)
-
-        return {"status": "ok"}
-    except Exception as e:
-        log_error(e)
-        return {"error": str(e)}
-
-# ---------------- REFERRAL ----------------
-@app.route("/referral", methods=["POST"])
-def referral():
-    try:
-        uid = request.json["uid"]
-        ref_uid = request.json["ref"]
-
-        if uid == ref_uid:
-            return {"status": "invalid"}
-
-        user_ref(uid).update({"referred_by": ref_uid})
-
-        # reward referrer
-        ref = user_ref(ref_uid).child("points")
-        ref.transaction(lambda x: (x or 0) + 50)
-
-        return {"status": "ok"}
-    except Exception as e:
-        log_error(e)
-        return {"error": str(e)}
-
-# ---------------- WITHDRAW ----------------
-@app.route("/withdraw", methods=["POST"])
-def withdraw():
-    try:
-        uid = request.json["uid"]
-        upi = request.json["upi"]
-
-        data = user_ref(uid).get()
-        points = data.get("points", 0)
-
-        if points < 1000:
-            return {"status": "low_balance"}
-
-        user_ref(uid).update({"points": 0})
-
-        db.reference("withdraw_requests").push({
-            "uid": uid,
-            "upi": upi,
-            "points": points,
-            "time": int(time.time())
+# Telegram Bot Commands
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    uid = message.from_user.id
+    name = message.from_user.first_name
+    username = message.from_user.username or ""
+    
+    # Initialize user in Firebase if not exists
+    user_ref = db.reference(f'users/{uid}')
+    user_data = user_ref.get()
+    
+    if not user_data:
+        user_ref.set({
+            'uid': uid,
+            'name': name,
+            'username': username,
+            'points': 0,
+            'earnings': 0.0,
+            'ads_watched_today': 0,
+            'last_ad_date': '',
+            'social_tasks': {
+                'youtube': False,
+                'instagram': False,
+                'facebook': False
+            },
+            'joined_at': datetime.now().isoformat(),
+            'total_earned': 0.0
         })
+    
+    # Create inline keyboard
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    dashboard_url = f"https://ultimate-media-search-bot-t7kj.vercel.app/dashboard?id={uid}&name={name}"
+    btn = types.InlineKeyboardButton("🎯 Open Dashboard", url=dashboard_url)
+    markup.add(btn)
+    
+    welcome_text = f"""👋 *Good Morning, {name}!*
 
-        return {"status": "success"}
-    except Exception as e:
-        log_error(e)
-        return {"error": str(e)}
+Welcome to *Ultimate Media Search Bot*!
 
-# ---------------- EXPORT ----------------
-app = app
+💰 *Earn Money by:*
+• Watching Ads (+25 Points)
+• Social Tasks (+100 Points)
+
+💵 *Withdrawal:* 100 Points = $1.00
+
+Click below to start earning!"""
+    
+    bot.send_message(message.chat.id, welcome_text, parse_mode='Markdown', reply_markup=markup)
+
+@bot.message_handler(commands=['balance'])
+def check_balance(message):
+    uid = message.from_user.id
+    user_ref = db.reference(f'users/{uid}')
+    user_data = user_ref.get()
+    
+    if user_data:
+        points = user_data.get('points', 0)
+        earnings = points / 100.0
+        text = f"""💰 *Your Balance:*
+
+📊 Points: {points}
+💵 Earnings: ${earnings:.2f}
+
+💡 100 Points = $1.00"""
+        bot.send_message(message.chat.id, text, parse_mode='Markdown')
+    else:
+        bot.send_message(message.chat.id, "User not found. Please /start first.")
+
+# Error handler
+@bot.error_handler(Exception)
+def error_handler(error):
+    print(f"Error: {error}")
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
