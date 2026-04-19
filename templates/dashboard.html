@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Ultimate Earn Dashboard</title>
+    <title>EarnFlow Premium</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -14,17 +14,16 @@
         body { background: radial-gradient(circle at top, #1e293b, #050a18); color: white; min-height: 100vh; display: flex; justify-content: center; padding: 20px; }
         .app-container { width: 100%; max-width: 450px; display: flex; flex-direction: column; gap: 15px; }
         .card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px; padding: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); }
-        .welcome-header { text-align: left; margin-bottom: 5px; }
-        #greeting { color: var(--primary); font-size: 0.9rem; margin: 0; font-weight: 300; }
-        .user-title { font-size: 1.6rem; font-weight: 700; margin-top: 2px; }
-        .user-id { font-size: 0.7rem; color: #64748b; font-family: monospace; margin-top: 5px; }
+        .welcome-header { text-align: left; }
+        #greeting { color: var(--primary); font-size: 0.9rem; }
+        .user-title { font-size: 1.6rem; font-weight: 700; }
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
         .stat-box { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 18px; text-align: center; border: 1px solid rgba(0, 210, 255, 0.1); }
         .stat-val { font-size: 1.8rem; font-weight: 700; color: var(--primary); }
         .stat-label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; }
         .bar-bg { background: rgba(255,255,255,0.05); height: 8px; border-radius: 10px; margin: 10px 0; overflow: hidden; }
         .bar-fill { height: 100%; background: var(--primary); width: 0%; transition: 0.5s; box-shadow: 0 0 10px var(--primary); }
-        .btn-main { width: 100%; padding: 16px; border-radius: 16px; border: none; background: linear-gradient(90deg, var(--primary), var(--secondary)); color: white; font-weight: 600; font-size: 1rem; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-main { width: 100%; padding: 16px; border-radius: 16px; border: none; background: linear-gradient(90deg, var(--primary), var(--secondary)); color: white; font-weight: 600; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .task-item { background: rgba(255,255,255,0.02); padding: 12px 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid rgba(255,255,255,0.05); margin-top: 10px; }
         .verify-badge { font-size: 0.75rem; padding: 6px 12px; border-radius: 50px; background: rgba(0, 210, 255, 0.1); color: var(--primary); cursor: pointer; }
     </style>
@@ -35,7 +34,7 @@
         <div class="welcome-header">
             <p id="greeting">Loading...</p>
             <h2 class="user-title">{{ user_name }}! 👋</h2>
-            <div class="user-id">UID: {{ uid }}</div>
+            <p style="font-size: 0.7rem; color: #64748b;">UID: {{ uid }}</p>
         </div>
         <div class="stats-grid">
             <div class="stat-box"><div class="stat-val" id="pointsVal">{{ pts }}</div><div class="stat-label">Points</div></div>
@@ -43,15 +42,15 @@
         </div>
     </div>
     <div class="card">
-        <div style="display: flex; justify-content: space-between; font-size: 0.8rem;"><span>Daily Ad Progress</span><span id="adRatio" style="color: var(--primary);">0/10</span></div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.8rem;"><span>Daily Ads</span><span id="adRatio" style="color: var(--primary);">0/10</span></div>
         <div class="bar-bg"><div class="bar-fill" id="adBar"></div></div>
-        <button class="btn-main" id="adBtn" onclick="startAdTimer()"><i class="fas fa-play-circle"></i> Watch Ad & Earn +25 Pts</button>
+        <button class="btn-main" id="adBtn" onclick="startAdTimer()"><i class="fas fa-play-circle"></i> Watch Ad (+25 Pts)</button>
         <p id="timerMsg" style="text-align: center; font-size: 0.75rem; margin-top: 10px; color: #64748b;"></p>
     </div>
     <div class="card">
-        <h3 style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 5px;">SOCIAL MISSIONS</h3>
-        <div class="task-item"><span><i class="fab fa-youtube"></i> YouTube Sub</span><div class="verify-badge" onclick="handleSocial('youtube', 'https://www.youtube.com/@Instagrampost1')">Verify +100</div></div>
-        <div class="task-item"><span><i class="fab fa-instagram"></i> Instagram Follow</span><div class="verify-badge" onclick="handleSocial('instagram', 'https://www.instagram.com/digital_rockstar_m')">Verify +100</div></div>
+        <h3 style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 5px;">TASKS</h3>
+        <div class="task-item"><span><i class="fab fa-youtube"></i> YouTube</span><div class="verify-badge" onclick="handleSocial('youtube', 'https://www.youtube.com/@Instagrampost1')">Verify +100</div></div>
+        <div class="task-item"><span><i class="fab fa-instagram"></i> Instagram</span><div class="verify-badge" onclick="handleSocial('instagram', 'https://www.instagram.com/digital_rockstar_m')">Verify +100</div></div>
     </div>
 </div>
 <script>
@@ -60,7 +59,6 @@
     const db = firebase.database();
     const userId = "{{ uid }}";
 
-    // Greeting Logic
     const hr = new Date().getHours();
     document.getElementById('greeting').innerText = hr < 12 ? "Good Morning," : hr < 17 ? "Good Afternoon," : "Good Evening,";
 
@@ -70,6 +68,7 @@
         document.getElementById('cashVal').innerText = "$" + (d.pts / 100).toFixed(2);
         document.getElementById('adRatio').innerText = (d.ads || 0) + "/10";
         document.getElementById('adBar').style.width = ((d.ads || 0) * 10) + "%";
+        if((d.ads || 0) >= 10) document.getElementById('adBtn').disabled = true;
     });
 
     function startAdTimer() {
@@ -79,7 +78,7 @@
         b.disabled = true;
         const t = setInterval(() => {
             s--;
-            document.getElementById('timerMsg').innerText = `Wait ${s}s to claim...`;
+            document.getElementById('timerMsg').innerText = `Claiming in ${s}s...`;
             if(s <= 0) { clearInterval(t); updateDB(25, true); b.disabled = false; document.getElementById('timerMsg').innerText = "Points Added!"; }
         }, 1000);
     }
