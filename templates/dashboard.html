@@ -1,341 +1,210 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard | Ultimate Media Search</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    * { font-family: 'Inter', sans-serif; }
-    body {
-      background: radial-gradient(circle at 10% 20%, #0f172a, #020617);
-      min-height: 100vh;
-    }
-    .glass-card {
-      background: rgba(15, 23, 42, 0.7);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(56, 189, 248, 0.15);
-      box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(56, 189, 248, 0.05) inset;
-    }
-    .glow-text {
-      text-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.3);
-    }
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px 0 rgba(139, 92, 246, 0.4);
-    }
-    .btn-secondary {
-      background: rgba(51, 65, 85, 0.6);
-      backdrop-filter: blur(8px);
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      transition: all 0.2s ease;
-    }
-    .btn-secondary:hover:not(:disabled) {
-      background: rgba(71, 85, 105, 0.8);
-      border-color: rgba(148, 163, 184, 0.4);
-    }
-    .timer-bar {
-      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-      box-shadow: 0 0 10px #3b82f6;
-    }
-    .number-font {
-      font-feature-settings: "tnum";
-      font-variant-numeric: tabular-nums;
-    }
-  </style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+
+<style>
+body {
+  margin:0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(180deg,#020617,#020617,#0f172a);
+  color:white;
+}
+
+/* CARD DESIGN */
+.card {
+  margin:15px;
+  padding:20px;
+  border-radius:20px;
+  background: linear-gradient(145deg,#0f172a,#1e293b);
+  box-shadow: 0 0 25px rgba(0,255,255,0.1);
+}
+
+/* HEADER */
+.header h1 {
+  font-size:26px;
+}
+.header span {
+  color:#22d3ee;
+}
+
+/* POINT BOX */
+.box {
+  display:flex;
+  justify-content:space-between;
+  margin-top:15px;
+}
+.mini {
+  width:48%;
+  padding:20px;
+  border-radius:15px;
+  background:#020617;
+  text-align:center;
+}
+.mini h2 {
+  color:#22d3ee;
+}
+
+/* BUTTON */
+.btn {
+  width:100%;
+  padding:15px;
+  border:none;
+  border-radius:30px;
+  background:linear-gradient(90deg,#06b6d4,#3b82f6);
+  color:white;
+  font-size:16px;
+}
+
+/* SOCIAL */
+.social {
+  display:flex;
+  justify-content:space-between;
+  margin-top:10px;
+  padding:15px;
+  background:#020617;
+  border-radius:15px;
+}
+.verify {
+  background:#0ea5e9;
+  padding:8px 15px;
+  border-radius:20px;
+}
+
+/* PROGRESS */
+.progress {
+  height:8px;
+  background:#020617;
+  border-radius:10px;
+  margin-top:10px;
+}
+.bar {
+  height:8px;
+  width:0%;
+  background:#22d3ee;
+  border-radius:10px;
+}
+</style>
 </head>
-<body class="text-slate-200 antialiased">
 
-<div class="max-w-3xl mx-auto px-4 py-6 md:py-10">
-  <!-- Header Card -->
-  <div class="glass-card rounded-3xl p-6 md:p-8 mb-6">
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-      <div>
-        <h1 class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-sky-400 via-blue-400 to-indigo-400 bg-clip-text text-transparent glow-text">
-          Ultimate Media Search
-        </h1>
-        <div class="mt-2 flex items-center gap-2">
-          <span class="text-slate-400">Welcome,</span>
-          <span id="userName" class="text-white font-semibold text-lg"></span>
-          <span class="text-xs bg-slate-700/50 px-2 py-1 rounded-full text-slate-400" id="userId"></span>
-        </div>
-      </div>
-      <div class="text-right">
-        <p class="text-xs uppercase tracking-wider text-slate-400">Your Balance</p>
-        <div class="flex items-baseline gap-1">
-          <span class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 number-font" id="pointsDisplay">0</span>
-          <span class="text-slate-400 text-sm ml-1">pts</span>
-        </div>
-        <p class="text-sm text-slate-400">≈ $<span id="usdValue" class="text-white font-medium">0.00</span> USD</p>
-      </div>
+<body>
+
+<div class="card header">
+  <p id="greet"></p>
+  <h1>Explorer 👋</h1>
+  <p>UID: <span id="uid"></span></p>
+
+  <div class="box">
+    <div class="mini">
+      <h2 id="points">0</h2>
+      <p>POINTS</p>
     </div>
-  </div>
-
-  <!-- Ad Earnings Card -->
-  <div class="glass-card rounded-3xl p-6 md:p-8 mb-6">
-    <div class="flex items-center gap-3 mb-4">
-      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
-        <span class="text-2xl">📺</span>
-      </div>
-      <div>
-        <h2 class="text-xl font-semibold">Watch Advertisement</h2>
-        <p class="text-sm text-slate-400">+25 points · Once every 24 hours</p>
-      </div>
-    </div>
-
-    <!-- Timer UI -->
-    <div class="mb-6">
-      <div class="flex justify-between text-sm mb-2">
-        <span class="text-slate-400">Progress</span>
-        <span id="timerText" class="font-mono text-sky-300">0s / 30s</span>
-      </div>
-      <div class="h-2.5 bg-slate-800/80 rounded-full overflow-hidden backdrop-blur-sm">
-        <div id="timerProgress" class="h-full timer-bar rounded-full transition-all duration-1000" style="width: 0%"></div>
-      </div>
-      <p id="cooldownInfo" class="text-xs text-orange-300/80 mt-2 min-h-[20px]"></p>
-    </div>
-
-    <div class="flex flex-col sm:flex-row gap-3">
-      <button id="adLinkBtn" onclick="openAdLink()" class="btn-secondary flex-1 py-3.5 px-6 rounded-xl font-medium text-base disabled:opacity-40 disabled:cursor-not-allowed">
-        🔗 Open Ad Link
-      </button>
-      <button id="claimAdBtn" onclick="claimAd()" disabled class="btn-primary flex-1 py-3.5 px-6 rounded-xl font-medium text-base disabled:opacity-40 disabled:cursor-not-allowed text-white">
-        ✅ Claim 25 Points
-      </button>
-    </div>
-    <p id="adStatus" class="text-sm text-slate-400 mt-4 min-h-[24px]"></p>
-  </div>
-
-  <!-- Social Tasks Card -->
-  <div class="glass-card rounded-3xl p-6 md:p-8">
-    <div class="flex items-center gap-3 mb-6">
-      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500/20 to-orange-500/20 flex items-center justify-center">
-        <span class="text-2xl">🌐</span>
-      </div>
-      <div>
-        <h2 class="text-xl font-semibold">Social Tasks</h2>
-        <p class="text-sm text-slate-400">+100 points each · One‑time claim</p>
-      </div>
-    </div>
-
-    <div class="space-y-5">
-      <!-- YouTube -->
-      <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-800/30 border border-slate-700/30">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center text-2xl">▶️</div>
-          <div>
-            <p class="font-medium">Subscribe on YouTube</p>
-            <p class="text-xs text-slate-400">Watch & follow our channel</p>
-          </div>
-        </div>
-        <div class="flex gap-2">
-          <a href="https://www.youtube.com/@Instagrampost1" target="_blank" onclick="markTaskClicked('youtube')" class="btn-secondary px-5 py-2.5 rounded-xl text-sm font-medium">Visit</a>
-          <button id="claimYtBtn" onclick="claimSocial('youtube')" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40" disabled>Claim</button>
-        </div>
-      </div>
-
-      <!-- Instagram -->
-      <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-800/30 border border-slate-700/30">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/30 flex items-center justify-center text-2xl">📷</div>
-          <div>
-            <p class="font-medium">Follow on Instagram</p>
-            <p class="text-xs text-slate-400">Follow our profile</p>
-          </div>
-        </div>
-        <div class="flex gap-2">
-          <a href="https://www.instagram.com/digital_rockstar_m" target="_blank" onclick="markTaskClicked('instagram')" class="btn-secondary px-5 py-2.5 rounded-xl text-sm font-medium">Visit</a>
-          <button id="claimIgBtn" onclick="claimSocial('instagram')" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40" disabled>Claim</button>
-        </div>
-      </div>
+    <div class="mini">
+      <h2>$<span id="money">0.00</span></h2>
+      <p>EARNINGS</p>
     </div>
   </div>
 </div>
 
+<div class="card">
+  <p>Daily Ad Progress <span id="count">0</span>/10</p>
+  <div class="progress"><div class="bar" id="bar"></div></div>
+
+  <br>
+  <button class="btn" onclick="startAd()">▶ Watch Ad & Earn +25</button>
+  <p id="timer"></p>
+</div>
+
+<div class="card">
+  <h3>SOCIAL MISSIONS</h3>
+
+  <div class="social">
+    <span>▶ YouTube Sub</span>
+    <button class="verify" onclick="task(100,'yt')">Verify +100</button>
+  </div>
+
+  <div class="social">
+    <span>📸 Instagram Follow</span>
+    <button class="verify" onclick="task(100,'ig')">Verify +100</button>
+  </div>
+
+  <div class="social">
+    <span>📘 Facebook Like</span>
+    <button class="verify" onclick="task(100,'fb')">Verify +100</button>
+  </div>
+</div>
+
 <script>
-  (function() {
-    // ---------- Read URL Parameters ----------
-    const params = new URLSearchParams(window.location.search);
-    const uid = params.get('id');
-    const name = params.get('name') || 'User';
-    if (!uid) {
-      document.body.innerHTML = '<div class="flex items-center justify-center h-screen text-red-400">Error: Missing user ID</div>';
-      return;
-    }
+const params = new URLSearchParams(window.location.search);
+const uid = params.get("id");
+const name = params.get("name");
 
-    // Set header info
-    document.getElementById('userName').innerText = name;
-    document.getElementById('userId').innerText = `ID: ${uid.slice(0,8)}...`;
+document.getElementById("uid").innerText = uid;
+document.getElementById("greet").innerText = "Good Morning, " + name;
 
-    // ---------- DOM Elements ----------
-    const pointsDisplay = document.getElementById('pointsDisplay');
-    const usdValue = document.getElementById('usdValue');
-    const adLinkBtn = document.getElementById('adLinkBtn');
-    const claimAdBtn = document.getElementById('claimAdBtn');
-    const timerText = document.getElementById('timerText');
-    const timerProgress = document.getElementById('timerProgress');
-    const adStatus = document.getElementById('adStatus');
-    const cooldownInfo = document.getElementById('cooldownInfo');
-    const claimYtBtn = document.getElementById('claimYtBtn');
-    const claimIgBtn = document.getElementById('claimIgBtn');
+let adCount = 0;
 
-    // ---------- State ----------
-    let currentPoints = 0;
-    let adTimerInterval = null;
-    let adSeconds = 0;
-    let adClaimable = false;
-    const AD_LINK = 'https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b';
+/* FETCH POINTS */
+function load(){
+ fetch(`/get_points/${uid}`)
+ .then(r=>r.json())
+ .then(d=>{
+   document.getElementById("points").innerText=d.points;
+   document.getElementById("money").innerText=(d.points/100).toFixed(2);
+ });
+}
+setInterval(load,2000);
 
-    // ---------- Helpers ----------
-    function updatePoints(points) {
-      currentPoints = points;
-      pointsDisplay.innerText = points;
-      usdValue.innerText = (points / 100).toFixed(2);
-    }
+/* AD TIMER */
+function startAd(){
+ if(adCount>=10){
+   alert("Daily limit reached");
+   return;
+ }
 
-    async function fetchUserData() {
-      try {
-        const res = await fetch(`/api/get_user_data?uid=${uid}`);
-        if (!res.ok) throw new Error('Failed to fetch user data');
-        const data = await res.json();
-        if (data.points !== undefined) updatePoints(data.points);
-        
-        const tasks = data.tasks || {};
-        const now = Math.floor(Date.now() / 1000);
-        const lastAdClaim = tasks.ad_last_claim || 0;
-        const cooldownRemaining = 86400 - (now - lastAdClaim);
-        
-        if (cooldownRemaining > 0) {
-          const hours = Math.floor(cooldownRemaining / 3600);
-          const mins = Math.floor((cooldownRemaining % 3600) / 60);
-          cooldownInfo.innerText = `⏳ Cooldown: ${hours}h ${mins}m remaining`;
-          adLinkBtn.disabled = true;
-          claimAdBtn.disabled = true;
-        } else {
-          cooldownInfo.innerText = '';
-        }
+ let t=30;
+ let timer=document.getElementById("timer");
 
-        if (tasks.youtube_claimed) {
-          claimYtBtn.disabled = true;
-          claimYtBtn.innerText = 'Claimed';
-        }
-        if (tasks.instagram_claimed) {
-          claimIgBtn.disabled = true;
-          claimIgBtn.innerText = 'Claimed';
-        }
-      } catch (err) {
-        console.error('Error loading user data:', err);
-        adStatus.innerText = '⚠️ Could not load data. Check connection.';
-      }
-    }
+ let x=setInterval(()=>{
+   timer.innerText="Wait "+t+" sec...";
+   t--;
 
-    // ---------- Ad Timer ----------
-    window.openAdLink = function() {
-      if (!uid || adLinkBtn.disabled) return;
-      window.open(AD_LINK, '_blank');
-      adLinkBtn.disabled = true;
-      adLinkBtn.innerText = '⏳ Timer started...';
-      adStatus.innerText = 'Watch the ad for 30 seconds to unlock the claim button.';
-      
-      adSeconds = 0;
-      adClaimable = false;
-      claimAdBtn.disabled = true;
-      timerText.innerText = '0s / 30s';
-      timerProgress.style.width = '0%';
-      
-      if (adTimerInterval) clearInterval(adTimerInterval);
-      adTimerInterval = setInterval(() => {
-        adSeconds++;
-        timerText.innerText = `${adSeconds}s / 30s`;
-        timerProgress.style.width = `${(adSeconds / 30) * 100}%`;
-        
-        if (adSeconds >= 30) {
-          clearInterval(adTimerInterval);
-          adTimerInterval = null;
-          adClaimable = true;
-          claimAdBtn.disabled = false;
-          adStatus.innerText = '✅ You can now claim your 25 points!';
-        }
-      }, 1000);
-    };
+   if(t<0){
+     clearInterval(x);
 
-    window.claimAd = async function() {
-      if (!adClaimable || !uid) return;
-      claimAdBtn.disabled = true;
-      claimAdBtn.innerText = 'Claiming...';
-      try {
-        const res = await fetch('/api/claim_ad', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({uid})
-        });
-        const data = await res.json();
-        if (data.success) {
-          updatePoints(data.points);
-          adStatus.innerText = '🎉 +25 points added! Come back in 24h.';
-          cooldownInfo.innerText = '⏳ Cooldown: 24h';
-          adLinkBtn.disabled = true;
-        } else {
-          adStatus.innerText = '❌ Claim failed. You may have already claimed today.';
-          claimAdBtn.disabled = false;
-        }
-      } catch (err) {
-        adStatus.innerText = '❌ Network error. Try again.';
-        claimAdBtn.disabled = false;
-      }
-    };
+     fetch("/add_points",{
+       method:"POST",
+       headers:{"Content-Type":"application/json"},
+       body:JSON.stringify({uid:uid,points:25})
+     });
 
-    // ---------- Social Tasks ----------
-    window.markTaskClicked = function(platform) {
-      const btn = platform === 'youtube' ? claimYtBtn : claimIgBtn;
-      btn.disabled = false;
-    };
+     adCount++;
+     document.getElementById("count").innerText=adCount;
+     document.getElementById("bar").style.width=(adCount*10)+"%";
 
-    window.claimSocial = async function(platform) {
-      if (!uid) return;
-      const btn = platform === 'youtube' ? claimYtBtn : claimIgBtn;
-      btn.disabled = true;
-      btn.innerText = 'Claiming...';
-      try {
-        const res = await fetch('/api/claim_social', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({uid, platform})
-        });
-        const data = await res.json();
-        if (data.success) {
-          updatePoints(data.points);
-          btn.innerText = 'Claimed';
-          btn.classList.remove('btn-primary');
-          btn.classList.add('btn-secondary');
-        } else {
-          btn.disabled = false;
-          btn.innerText = 'Claim';
-          alert('Already claimed or error occurred.');
-        }
-      } catch (err) {
-        btn.disabled = false;
-        btn.innerText = 'Claim';
-        alert('Network error.');
-      }
-    };
+     timer.innerText="✅ Points Added!";
+   }
+ },1000);
 
-    // ---------- Initialize ----------
-    fetchUserData();
-    // Auto refresh points every 30s (optional)
-    setInterval(() => {
-      fetch(`/api/get_points?uid=${uid}`).then(r => r.json()).then(d => {
-        if (d.points !== undefined) updatePoints(d.points);
-      }).catch(()=>{});
-    }, 30000);
-  })();
+ window.open("https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b");
+}
+
+/* SOCIAL TASK */
+function task(p,type){
+ if(type=="yt") window.open("https://www.youtube.com/@Instagrampost1");
+ if(type=="ig") window.open("https://www.instagram.com/digital_rockstar_m");
+ if(type=="fb") window.open("https://www.facebook.com/profile.php?id=61574378159053");
+
+ fetch("/add_points",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({uid:uid,points:p})
+ });
+
+ alert("✅ Task Completed +"+p);
+}
 </script>
+
 </body>
 </html>
