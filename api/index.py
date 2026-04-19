@@ -4,22 +4,19 @@ import firebase_admin
 from firebase_admin import credentials, db
 from flask import Flask, request, render_template
 
-# Flask Setup
 app = Flask(__name__, 
             template_folder=os.path.join(os.path.dirname(__file__), '../templates'))
 
-# Bot Token & Config
+# CORRECT TOKEN
 TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
-# Firebase Initialization
 def init_firebase():
     if not firebase_admin._apps:
         try:
             raw_key = os.getenv("FIREBASE_PRIVATE_KEY", "")
             p_key = raw_key.replace('\\n', '\n').strip('"').strip("'")
             c_email = os.getenv("FIREBASE_CLIENT_EMAIL")
-            
             if p_key and c_email:
                 cred = credentials.Certificate({
                     "type": "service_account",
@@ -31,57 +28,41 @@ def init_firebase():
                 firebase_admin.initialize_app(cred, {
                     'databaseURL': 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'
                 })
-        except Exception as e:
-            print(f"Firebase Init Error: {e}")
+        except: pass
 
-# --- WEBHOOK ENDPOINT (For Telegram) ---
 @app.route('/', methods=['POST', 'GET'])
 def webhook():
     if request.method == 'POST':
-        update = telebot.types.Update.de_json(request.stream.read().decode('utf-8'))
-        bot.process_new_updates([update])
+        try:
+            json_str = request.get_data().decode('utf-8')
+            update = telebot.types.Update.de_json(json_str)
+            bot.process_new_updates([update])
+        except Exception as e:
+            print(f"Error: {e}")
         return "OK", 200
-    return "<h1>Bot is Online! 🚀</h1>", 200
+    return "Bot Online 🚀", 200
 
-# --- BOT LOGIC: WELCOME MESSAGE ---
 @bot.message_handler(commands=['start'])
-def handle_start(message):
+def welcome(message):
     uid = message.chat.id
     name = message.from_user.first_name
-    
-    # Dashboard URL with User Info
     dash_url = f"https://ultimate-media-search-bot-t7kj.vercel.app/dashboard?id={uid}&name={name}"
     
     markup = telebot.types.InlineKeyboardMarkup()
     markup.add(telebot.types.InlineKeyboardButton("🚀 Open Dashboard", url=dash_url))
     
-    welcome_text = (
-        f"<b>Namaste {name}! 👋</b>\n\n"
-        "Welcome to <b>Ultimate Media Search Bot</b>.\n"
-        "Yahan aap social tasks poora karke aur ads\n"
-        "dekh kar daily points earn kar sakte hain.\n\n"
-        "💰 100 Points = $1.00\n"
-        "🏦 Minimum Withdraw: $10.00\n\n"
-        "Niche diye gaye button par click karke shuru karein!"
-    )
-    
-    bot.send_message(uid, welcome_text, parse_mode="HTML", reply_markup=markup)
+    bot.send_message(uid, f"<b>Hello {name}! 👋</b>\nWelcome to Ultimate Earn Bot.", 
+                     parse_mode="HTML", reply_markup=markup)
 
-# --- DASHBOARD ROUTE ---
 @app.route('/dashboard')
 def dashboard():
     uid = request.args.get('id', 'Guest')
     user_name = request.args.get('name', 'Explorer')
     pts = 0
-    ad_link = "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
-    
+    init_firebase()
     try:
-        init_firebase()
         if firebase_admin._apps:
             u_data = db.reference(f'users/{uid}').get()
-            if u_data:
-                pts = u_data.get('pts', 0)
-    except:
-        pts = 0
-
-    return render_template('dashboard.html', pts=pts, uid=uid, ad_link=ad_link, user_name=user_name)
+            if u_data: pts = u_data.get('pts', 0)
+    except: pts = 0
+    return render_template('dashboard.html', pts=pts, uid=uid, user_name=user_name)
