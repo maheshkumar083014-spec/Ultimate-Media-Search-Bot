@@ -3,289 +3,157 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🔧 Admin Panel - Ultimate Media</title>
+  <title>🔧 Admin Panel</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: { 500: '#6366f1', 600: '#4f46e5' },
-            dark: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' }
-          }
-        }
-      }
-    }
-  </script>
   <style>
     body { background: #0f172a; color: #f1f5f9; font-family: system-ui, sans-serif; }
-    .glass { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(148, 163, 184, 0.1); }
+    .glass { background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(148, 163, 184, 0.1); }
     .status-pending { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
     .status-approved { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
     .status-rejected { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
   </style>
 </head>
 <body class="min-h-screen">
+<header class="glass border-b border-gray-700 sticky top-0 z-40">
+  <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+    <h1 class="font-bold">🔧 Admin Panel</h1>
+    <button onclick="logout()" class="text-red-400 text-sm">Logout</button>
+  </div>
+</header>
+<main class="container mx-auto px-4 py-6 space-y-6">
+  <!-- Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="glass rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold">{{ stats.total_users }}</div>
+      <div class="text-xs text-gray-400">Users</div>
+    </div>
+    <div class="glass rounded-xl p-4 text-center">
+      <div class="text-2xl font-bold text-warning">{{ stats.pending_reviews }}</div>
+      <div class="text-xs text-gray-400">Pending</div>
+    </div>
+  </div>
   
-  <!-- Header -->
-  <header class="glass border-b border-dark-700 sticky top-0 z-40">
-    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
-      <h1 class="font-bold text-lg">🔧 Admin Panel</h1>
-      <div class="flex items-center gap-3">
-        <span class="text-sm text-gray-400">Admin #{{ admin_id }}</span>
-        <button onclick="logout()" class="text-danger text-sm hover:underline">Logout</button>
-      </div>
-    </div>
-  </header>
-
-  <!-- Stats Overview -->
-  <main class="container mx-auto px-4 py-6 space-y-6">
-    
-    <!-- Platform Stats -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="glass rounded-xl p-4 text-center">
-        <div class="text-2xl font-bold" id="statUsers">{{ stats.total_users | default(0) }}</div>
-        <div class="text-xs text-gray-400">Total Users</div>
-      </div>
-      <div class="glass rounded-xl p-4 text-center">
-        <div class="text-2xl font-bold text-primary-400" id="statPoints">{{ stats.total_points_distributed | default(0) }}</div>
-        <div class="text-xs text-gray-400">Points Distributed</div>
-        <div class="text-xs text-gray-500">${{ (stats.total_points_distributed | default(0)) / 100 | round(2) }}</div>
-      </div>
-      <div class="glass rounded-xl p-4 text-center">
-        <div class="text-2xl font-bold text-warning" id="statPending">{{ stats.pending_reviews | default(0) }}</div>
-        <div class="text-xs text-gray-400">Pending Reviews</div>
-      </div>
-      <div class="glass rounded-xl p-4 text-center">
-        <div class="text-2xl font-bold text-success" id="statRate">{{ stats.approval_rate | default(0) }}%</div>
-        <div class="text-xs text-gray-400">Approval Rate</div>
-      </div>
-    </div>
-
-    <!-- Pending Submissions -->
-    <section class="glass rounded-xl p-4">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="font-semibold">📋 Pending Submissions</h2>
-        <button onclick="loadSubmissions()" class="text-primary-400 text-sm hover:underline">🔄 Refresh</button>
-      </div>
-      
-      <div id="submissionsList" class="space-y-3">
-        {% if pending_submissions %}
-          {% for sub in pending_submissions %}
-          <div class="glass rounded-lg p-4" data-submission="{{ sub.id }}">
-            <div class="flex items-start justify-between gap-4">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="status-pending px-2 py-0.5 rounded text-xs font-medium">Pending</span>
-                  <span class="text-xs text-gray-400">{{ sub.task_type }}</span>
-                </div>
-                <p class="text-sm font-medium">{{ sub.user_info.username or 'Unknown' }} (@{{ sub.user_info.first_name }})</p>
-                <p class="text-xs text-gray-400 mt-1">Submitted: {{ sub.submitted_at | format_time if sub.submitted_at else 'Unknown' }}</p>
-                
-                <!-- Screenshot Preview -->
-                <div class="mt-3">
-                  <a href="{{ sub.screenshot_url }}" target="_blank" class="block">
-                    <img src="{{ sub.screenshot_url }}" alt="Screenshot" class="rounded-lg max-h-48 object-contain bg-dark-800" onerror="this.src='https://via.placeholder.com/300x200/1e293b/6366f1?text=Screenshot'">
-                  </a>
-                  {% if sub.proof_text %}
-                  <p class="text-xs text-gray-400 mt-2 italic">"{{ sub.proof_text }}"</p>
-                  {% endif %}
-                </div>
-              </div>
-              
-              <!-- Actions -->
-              <div class="flex flex-col gap-2">
-                <button onclick="reviewSubmission('{{ sub.id }}', true)" class="bg-success/20 text-success px-4 py-2 rounded-lg text-sm font-medium hover:bg-success/30 transition">
-                  ✓ Approve
-                </button>
-                <button onclick="showRejectModal('{{ sub.id }}')" class="bg-danger/20 text-danger px-4 py-2 rounded-lg text-sm font-medium hover:bg-danger/30 transition">
-                  ✗ Reject
-                </button>
-              </div>
+  <!-- Submissions -->
+  <section class="glass rounded-xl p-4">
+    <h2 class="font-semibold mb-4">📋 Pending Submissions</h2>
+    <div id="subList" class="space-y-3">
+      {% if pending %}
+        {% for sub in pending %}
+        <div class="glass rounded-lg p-4" data-id="{{ sub.id }}">
+          <div class="flex justify-between items-start gap-4">
+            <div>
+              <span class="status-pending px-2 py-0.5 rounded text-xs">Pending</span>
+              <p class="text-sm font-medium mt-2">{{ sub.user_info.username or 'Unknown' }}</p>
+              <p class="text-xs text-gray-400">{{ sub.task_type }}</p>
+              <a href="{{ sub.screenshot_url }}" target="_blank" class="block mt-3">
+                <img src="{{ sub.screenshot_url }}" class="rounded-lg max-h-48 bg-gray-800" onerror="this.src='https://via.placeholder.com/300x200/1e293b/6366f1?text=Screenshot'">
+              </a>
+            </div>
+            <div class="flex flex-col gap-2">
+              <button onclick="review('{{ sub.id }}', true)" class="bg-green-500/20 text-green-400 px-4 py-2 rounded-lg text-sm">✓ Approve</button>
+              <button onclick="reject('{{ sub.id }}')" class="bg-red-500/20 text-red-400 px-4 py-2 rounded-lg text-sm">✗ Reject</button>
             </div>
           </div>
-          {% endfor %}
-        {% else %}
-          <p class="text-center text-gray-400 py-8">🎉 No pending submissions!</p>
-        {% endif %}
-      </div>
-    </section>
-
-    <!-- Broadcast Section -->
-    <section class="glass rounded-xl p-4">
-      <h2 class="font-semibold mb-4">📢 Broadcast Message</h2>
-      
-      <textarea id="broadcastMsg" rows="4" class="w-full glass rounded-lg px-4 py-3 bg-dark-800 border border-dark-700 focus:border-primary-500 outline-none resize-none" placeholder="Enter message to send to all users..."></textarea>
-      
-      <div class="flex items-center justify-between mt-3">
-        <p class="text-xs text-gray-400">Max 1000 characters • Sent via Telegram</p>
-        <button onclick="sendBroadcast()" class="btn-primary text-white px-6 py-2 rounded-lg font-medium">
-          Send to All Users
-        </button>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- Reject Modal -->
-  <div id="rejectModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 hidden">
-    <div class="glass rounded-2xl w-full max-w-md p-5">
-      <h3 class="font-semibold mb-4">✗ Reject Submission</h3>
-      <p class="text-sm text-gray-400 mb-4">Provide a reason for rejection (shown to user):</p>
-      <textarea id="rejectReason" rows="3" class="w-full glass rounded-lg px-4 py-3 bg-dark-800 border border-dark-700 focus:border-danger outline-none resize-none" placeholder="e.g., Screenshot unclear, task not completed..."></textarea>
-      <div class="flex gap-3 mt-4">
-        <button onclick="closeRejectModal()" class="flex-1 glass py-2 rounded-lg font-medium">Cancel</button>
-        <button onclick="confirmReject()" class="flex-1 bg-danger text-white py-2 rounded-lg font-medium">Reject</button>
-      </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-center text-gray-400 py-8">🎉 No pending submissions!</p>
+      {% endif %}
     </div>
-  </div>
-
-  <!-- Toast -->
-  <div id="toast" class="fixed bottom-4 right-4 glass rounded-xl p-4 shadow-lg max-w-xs z-50 hidden flex items-start gap-3">
-    <span id="toastIcon" class="text-xl">✅</span>
-    <div>
-      <p id="toastMsg" class="text-sm font-medium"></p>
-    </div>
-  </div>
-
-  <script>
-    const ADMIN_CONFIG = {{ config | tojson | safe }};
-    const ADMIN_ID = {{ admin_id }};
-    let currentRejectId = null;
-
-    // Load submissions on page load
-    document.addEventListener('DOMContentLoaded', () => {
-      loadSubmissions();
-    });
-
-    async function loadSubmissions() {
-      try {
-        const res = await fetch('/api/admin/submissions?limit=20', {
-          headers: { 
-            'X-Admin-Key': ADMIN_CONFIG.admin_key,
-            'X-Admin-ID': ADMIN_ID 
-          }
-        });
-        const { success, data } = await res.json();
-        
-        if (success && data.submissions?.length) {
-          // In production, re-render the list dynamically
-          // For now, just refresh the page
-          location.reload();
-        }
-      } catch (err) {
-        console.error('Load submissions error:', err);
-        showToast('❌ Failed to load submissions', '⚠️');
-      }
-    }
-
-    async function reviewSubmission(submissionId, approved) {
-      const reason = approved ? 'Admin approved' : document.getElementById('rejectReason')?.value || 'Rejected by admin';
-      
-      try {
-        const res = await fetch('/api/admin/review', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-Admin-Key': ADMIN_CONFIG.admin_key,
-            'X-Admin-ID': ADMIN_ID 
-          },
-          body: JSON.stringify({
-            submission_id: submissionId,
-            approved: approved,
-            reason: reason
-          })
-        });
-        
-        const { success, error } = await res.json();
-        
-        if (success) {
-          showToast(`✅ Submission ${approved ? 'approved' : 'rejected'}`, '✨');
-          // Remove from UI
-          const el = document.querySelector(`[data-submission="${submissionId}"]`);
-          if (el) el.remove();
-          // Update stats
-          const pendingEl = document.getElementById('statPending');
-          if (pendingEl) pendingEl.textContent = parseInt(pendingEl.textContent) - 1;
-        } else {
-          showToast(`❌ ${error || 'Review failed'}`, '⚠️');
-        }
-      } catch (err) {
-        console.error('Review error:', err);
-        showToast('❌ Connection error', '⚠️');
-      }
-    }
-
-    function showRejectModal(submissionId) {
-      currentRejectId = submissionId;
-      document.getElementById('rejectReason').value = '';
-      document.getElementById('rejectModal').classList.remove('hidden');
-    }
-
-    function closeRejectModal() {
-      document.getElementById('rejectModal').classList.add('hidden');
-      currentRejectId = null;
-    }
-
-    function confirmReject() {
-      if (currentRejectId) {
-        reviewSubmission(currentRejectId, false);
-        closeRejectModal();
-      }
-    }
-
-    async function sendBroadcast() {
-      const message = document.getElementById('broadcastMsg').value.trim();
-      if (!message) {
-        showToast('⚠️ Message required', '⚠️');
-        return;
-      }
-      
-      try {
-        const res = await fetch('/api/admin/broadcast', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'X-Admin-Key': ADMIN_CONFIG.admin_key,
-            'X-Admin-ID': ADMIN_ID 
-          },
-          body: JSON.stringify({ message })
-        });
-        
-        const { success, data, error } = await res.json();
-        
-        if (success) {
-          showToast(`✅ Sent to ${data.sent} users!`, '✨');
-          document.getElementById('broadcastMsg').value = '';
-        } else {
-          showToast(`❌ ${error || 'Broadcast failed'}`, '⚠️');
-        }
-      } catch (err) {
-        console.error('Broadcast error:', err);
-        showToast('❌ Connection error', '⚠️');
-      }
-    }
-
-    function showToast(message, icon = '✅') {
-      const toast = document.getElementById('toast');
-      document.getElementById('toastIcon').textContent = icon;
-      document.getElementById('toastMsg').textContent = message;
-      toast.classList.remove('hidden');
-      
-      setTimeout(() => toast.classList.add('hidden'), 3000);
-    }
-
-    function logout() {
-      // Clear admin session (in production, invalidate token)
-      showToast('👋 Logged out', '✨');
-      setTimeout(() => window.location.href = '/', 1000);
-    }
-
-    // Close modal on backdrop click
-    document.getElementById('rejectModal')?.addEventListener('click', (e) => {
-      if (e.target.id === 'rejectModal') closeRejectModal();
-    });
-  </script>
+  </section>
   
+  <!-- Broadcast -->
+  <section class="glass rounded-xl p-4">
+    <h2 class="font-semibold mb-3">📢 Broadcast</h2>
+    <textarea id="broadcastMsg" rows="3" class="w-full glass rounded-lg px-4 py-3 bg-gray-800 border border-gray-700" placeholder="Message..."></textarea>
+    <button onclick="sendBroadcast()" class="mt-3 bg-indigo-600 text-white px-6 py-2 rounded-lg">Send to All</button>
+  </section>
+</main>
+
+<!-- Reject Modal -->
+<div id="rejectModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 hidden">
+  <div class="glass rounded-2xl w-full max-w-md p-5">
+    <h3 class="font-semibold mb-4">✗ Reject</h3>
+    <textarea id="rejectReason" rows="3" class="w-full glass rounded-lg px-4 py-3 bg-gray-800 border border-gray-700 mb-4" placeholder="Reason..."></textarea>
+    <div class="flex gap-3">
+      <button onclick="closeReject()" class="flex-1 glass py-2 rounded-lg">Cancel</button>
+      <button onclick="confirmReject()" class="flex-1 bg-red-600 text-white py-2 rounded-lg">Reject</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-4 right-4 glass rounded-xl p-4 shadow-lg hidden flex items-center gap-3">
+  <span id="toastIcon">✅</span>
+  <span id="toastMsg" class="text-sm"></span>
+</div>
+
+<script>
+const ADMIN_KEY = "{{ admin_key }}";
+let rejectId = null;
+
+async function review(sid, approved) {
+  const reason = approved ? 'Approved' : document.getElementById('rejectReason').value || 'Rejected';
+  try {
+    const res = await fetch('/api/admin/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_KEY },
+      body: JSON.stringify({ submission_id: sid, approved, reason })
+    });
+    const { success } = await res.json();
+    if (success) {
+      showToast(`✅ ${approved ? 'Approved' : 'Rejected'}`);
+      document.querySelector(`[data-id="${sid}"]`)?.remove();
+      location.reload();
+    }
+  } catch(e) { showToast('❌ Error', '⚠️'); }
+}
+
+function reject(sid) {
+  rejectId = sid;
+  document.getElementById('rejectModal').classList.remove('hidden');
+}
+
+function closeReject() {
+  document.getElementById('rejectModal').classList.add('hidden');
+  rejectId = null;
+}
+
+function confirmReject() {
+  if (rejectId) review(rejectId, false);
+  closeReject();
+}
+
+async function sendBroadcast() {
+  const msg = document.getElementById('broadcastMsg').value.trim();
+  if (!msg) return showToast('⚠️ Message required');
+  try {
+    const res = await fetch('/api/admin/broadcast', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_KEY },
+      body: JSON.stringify({ message: msg })
+    });
+    const { success, data } = await res.json();
+    if (success) showToast(`✅ Sent to ${data.sent} users`);
+  } catch(e) { showToast('❌ Error'); }
+}
+
+function showToast(msg, icon = '✅') {
+  const t = document.getElementById('toast');
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastMsg').textContent = msg;
+  t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 3000);
+}
+
+function logout() {
+  showToast('👋 Logged out');
+  setTimeout(() => window.location.href = '/', 1000);
+}
+
+document.getElementById('rejectModal')?.addEventListener('click', e => {
+  if (e.target.id === 'rejectModal') closeReject();
+});
+</script>
 </body>
 </html>
