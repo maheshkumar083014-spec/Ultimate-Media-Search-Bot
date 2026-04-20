@@ -1,152 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🌟 Welcome - Ultimate Media Search</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            background: linear-gradient(135deg, #0e1621 0%, #1a2332 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            padding: 20px;
-        }
-        .bot-card {
-            background: linear-gradient(145deg, #17212b, #1f2a37);
-            border-radius: 20px;
-            padding: 25px;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(138, 180, 248, 0.1);
-            color: white;
-            animation: slideUp 0.4s ease-out;
-        }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        .bot-card .image-wrapper {
-            position: relative;
-            border-radius: 16px;
-            overflow: hidden;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-        }
-        .bot-card img {
-            width: 100%;
-            height: auto;
-            display: block;
-            border-radius: 16px;
-            transition: transform 0.3s ease;
-        }
-        .bot-card img:hover { transform: scale(1.02); }
-        .badge {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            color: white;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
-        }
-        .welcome-text {
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin-bottom: 12px;
-            background: linear-gradient(135deg, #8ab4f8, #a7c7f7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            line-height: 1.4;
-        }
-        .motivation {
-            font-size: 0.95rem;
-            color: #9aa7b5;
-            line-height: 1.6;
-            margin-bottom: 20px;
-            padding: 0 8px;
-        }
-        .stats-row {
-            display: flex;
-            justify-content: space-around;
-            padding: 15px 0;
-            border-top: 1px solid rgba(138, 180, 248, 0.15);
-            border-bottom: 1px solid rgba(138, 180, 248, 0.15);
-            margin-bottom: 20px;
-        }
-        .stat-item { text-align: center; }
-        .stat-value { font-size: 1.3rem; font-weight: 700; color: #8ab4f8; }
-        .stat-label { font-size: 0.75rem; color: #6b7a8f; margin-top: 4px; }
-        .cta-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
-            padding: 14px 20px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
-            color: white;
-            text-decoration: none;
-            border-radius: 14px;
-            font-weight: 600;
-            font-size: 1rem;
-            transition: all 0.2s ease;
-            border: none;
-            cursor: pointer;
-            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.35);
-        }
-        .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 35px rgba(99, 102, 241, 0.5); }
-        .cta-btn:active { transform: translateY(0); }
-        .footer-note { margin-top: 18px; font-size: 0.8rem; color: #5a6a7e; }
-        .sparkle { display: inline-block; animation: sparkle 1.5s ease-in-out infinite; }
-        @keyframes sparkle { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.9); } }
-        @media (max-width: 480px) {
-            .bot-card { padding: 20px; }
-            .welcome-text { font-size: 1.1rem; }
-            .motivation { font-size: 0.9rem; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🌟 Welcome - Ultimate Media Search</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: linear-gradient(135deg, #0e1621, #1a2332); color: white; font-family: system-ui, sans-serif; }
+    .card { background: linear-gradient(145deg, #17212b, #1f2a37); border-radius: 20px; padding: 25px; max-width: 400px; margin: 20px auto; box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
+    .badge { background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .btn { background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7); color: white; padding: 14px 20px; border-radius: 14px; font-weight: 600; text-decoration: none; display: block; text-align: center; margin-top: 20px; }
+    .btn:hover { transform: translateY(-2px); }
+  </style>
 </head>
 <body>
-<div class="bot-card">
-    <div class="image-wrapper">
-        <span class="badge">✨ Premium</span>
-        <img src="https://i.ibb.co/placeholder/welcome-bot.jpg" 
-             alt="Welcome to Ultimate Media Search Bot"
-             onerror="this.src='https://via.placeholder.com/400x220/1f2a37/8ab4f8?text=🎬+Ultimate+Media+Search'">
-    </div>
-    <div class="welcome-text">
-        <span class="sparkle">🌟</span> Welcome to Ultimate Media Search Bot!
-    </div>
-    <p class="motivation">
-        "Your smartphone is now your ATM. Stop scrolling for free—start earning for your time! 💰✨"
-    </p>
-    <div class="stats-row">
-        <div class="stat-item"><div class="stat-value">+25</div><div class="stat-label">Per Ad</div></div>
-        <div class="stat-item"><div class="stat-value">+100</div><div class="stat-label">Social Tasks</div></div>
-        <div class="stat-item"><div class="stat-value">$1</div><div class="stat-label">= 100 Pts</div></div>
-    </div>
-    <a href="/dashboard?id={user_id}&name={user_name}" class="cta-btn" id="dashboardBtn">
-        🚀 Open Dashboard & Start Earning
-    </a>
-    <p class="footer-note">🔐 Secure • ⚡ Instant Payouts • 🎁 Daily Rewards</p>
+<div class="card">
+  <div style="position: relative; border-radius: 16px; overflow: hidden; margin-bottom: 20px;">
+    <span class="badge" style="position: absolute; top: 12px; right: 12px;">✨ Premium</span>
+    <img src="{{ banner }}" alt="Welcome" style="width: 100%; border-radius: 16px;" onerror="this.src='https://via.placeholder.com/400x220/1f2a37/8ab4f8?text=🎬+Ultimate+Media'">
+  </div>
+  <h2 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 12px; background: linear-gradient(135deg, #8ab4f8, #a7c7f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+    🌟 Welcome to Ultimate Media Search!
+  </h2>
+  <p style="color: #9aa7b5; line-height: 1.6; margin-bottom: 20px;">
+    "Your smartphone is now your ATM. Stop scrolling for free—start earning for your time! 💰✨"
+  </p>
+  <div style="display: flex; justify-content: space-around; padding: 15px 0; border-top: 1px solid rgba(138,180,248,0.15); border-bottom: 1px solid rgba(138,180,248,0.15); margin-bottom: 20px;">
+    <div style="text-align: center;"><div style="font-size: 1.3rem; font-weight: 700; color: #8ab4f8;">+25</div><div style="font-size: 0.75rem; color: #6b7a8f;">Per Ad</div></div>
+    <div style="text-align: center;"><div style="font-size: 1.3rem; font-weight: 700; color: #8ab4f8;">+100</div><div style="font-size: 0.75rem; color: #6b7a8f;">Social</div></div>
+    <div style="text-align: center;"><div style="font-size: 1.3rem; font-weight: 700; color: #8ab4f8;">$1</div><div style="font-size: 0.75rem; color: #6b7a8f;">= 100 Pts</div></div>
+  </div>
+  <a href="{{ app_url }}/dashboard?id={user_id}&name={user_name}" class="btn" id="dashBtn">🚀 Open Dashboard & Start Earning</a>
+  <p style="margin-top: 18px; font-size: 0.8rem; color: #5a6a7e; text-align: center;">🔐 Secure • ⚡ Instant • 🎁 Daily</p>
 </div>
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const params = new URLSearchParams(window.location.search);
-        const userId = params.get('id') || '0';
-        const userName = params.get('name') || 'User';
-        const dashboardBtn = document.getElementById('dashboardBtn');
-        if (dashboardBtn) {
-            const currentHref = dashboardBtn.href;
-            dashboardBtn.href = currentHref.replace('{user_id}', userId).replace('{user_name}', encodeURIComponent(userName));
-        }
-    });
+  const params = new URLSearchParams(window.location.search);
+  const uid = params.get('id') || '0';
+  const name = params.get('name') || 'User';
+  const btn = document.getElementById('dashBtn');
+  if (btn) btn.href = btn.href.replace('{user_id}', uid).replace('{user_name}', encodeURIComponent(name));
 </script>
 </body>
 </html>
