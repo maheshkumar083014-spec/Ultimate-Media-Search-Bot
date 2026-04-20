@@ -1,7 +1,3 @@
-"""
-🚀 Ultimate Media Search Bot - Vercel Serverless
-Compatible with: pyTelegramBotAPI + Flask + Firebase REST
-"""
 import os
 import json
 import logging
