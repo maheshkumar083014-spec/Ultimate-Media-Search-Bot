@@ -13,24 +13,28 @@
   "routes": [
     {
       "src": "/webhook",
-      "dest": "api/index.py",
+      "dest": "/api/index.py",
       "methods": ["POST"]
     },
     {
       "src": "/dashboard",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/welcome",
+      "dest": "/api/index.py"
     },
     {
       "src": "/admin",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/api/(.*)",
-      "dest": "api/index.py",
+      "dest": "/api/index.py",
       "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       "headers": {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-User-ID, X-Device-ID",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-User-ID",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS"
       }
     },
@@ -40,11 +44,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     }
-  ],
-  "env": {
-    "FLASK_ENV": "production",
-    "DEBUG": "false"
-  }
+  ]
 }
