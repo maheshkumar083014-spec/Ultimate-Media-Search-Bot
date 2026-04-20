@@ -1,16 +1,36 @@
-# 🤖 Ultimate Media Search Bot
+# 🤖 Ultimate Media Search Bot - Professional Edition
 
-Telegram earn bot with Firebase backend & Vercel deployment.
+> Premium Telegram Earning Bot with TWA Dashboard • Screenshot Verification • Admin Panel • Anti-Fraud
 
-## ⚠️ Security First
-1. **NEVER** commit real credentials to public repos
-2. Use Vercel Environment Variables:
-   - `BOT_TOKEN`: Your Telegram bot token
-   - `FIREBASE_DATABASE_URL`: Your Firebase RTDB URL
+![Premium Dashboard](https://i.ibb.co/9kmTw4Gh/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg)
 
-## 🚀 One-Click Deploy to Vercel
+## ✨ Features
 
-1. Push this code to GitHub
-2. Go to [vercel.com/new](https://vercel.com/new)
-3. Import your repo
-4. Add environment variables:
+### 👤 User Experience
+- 🎨 Premium mobile-responsive TWA dashboard (Tailwind CSS)
+- 💰 Real-time point tracking with Firebase
+- 📸 Screenshot submission with admin approval workflow
+- 👥 Referral system with unique links & automatic bonuses
+- 🔔 Push notifications via Telegram
+
+### 🔐 Security & Anti-Fraud
+- 🛡️ IP/device fingerprinting & rate limiting
+- 🚫 Duplicate submission detection
+- 🔍 Screenshot URL validation & metadata checking
+- 📊 Fraud pattern detection (multiple accounts, rapid submissions)
+- 🔑 Environment variable management for secrets
+
+### 👨‍💼 Admin Panel
+- 🔐 Secure admin authentication
+- 📋 Submission review queue (Approve/Reject with reason)
+- 📊 Platform analytics & user statistics
+- 📢 Broadcast messaging to all users
+- 👥 User management & balance adjustments
+
+### 🚀 Deployment Ready
+- ✅ Vercel serverless configuration included
+- ✅ Railway/Render compatible
+- ✅ Firebase Realtime Database integration
+- ✅ Telegram WebApp optimized
+
+## 📁 Project Structure
