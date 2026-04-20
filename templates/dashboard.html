@@ -2,257 +2,330 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Ultimate Media Search • Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="theme-color" content="#0f172a"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>💎 Ultimate Media Search</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' },
+            dark: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
+            success: '#22c55e', warning: '#f59e0b', danger: '#ef4444'
+          },
+          animation: { 'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite' }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  
+  <!-- Telegram WebApp -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
   <style>
-    :root{--primary:#6366f1;--primary-hover:#4f46e5;--dark:#0f172a;--card:#1e293b;--text:#f1f5f9;--muted:#94a3b8;--success:#22c55e;--border:#334155;--grad:linear-gradient(135deg,#6366f1,#8b5cf6,#a855f7)}
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:system-ui,-apple-system,sans-serif;background:var(--dark);color:var(--text);min-height:100vh;background-image:radial-gradient(circle at 20% 80%,rgba(99,102,241,.15),transparent 50%),radial-gradient(circle at 80% 20%,rgba(139,92,246,.15),transparent 50%)}
-    .container{max-width:1100px;margin:0 auto;padding:20px}
-    .header{display:flex;justify-content:space-between;align-items:center;padding:20px 0;border-bottom:1px solid var(--border);margin-bottom:24px}
-    .logo{display:flex;align-items:center;gap:10px;font-size:1.4rem;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-    .user-info{text-align:right}.user-name{font-weight:600}.user-id{font-size:.85rem;color:var(--muted);font-family:monospace}
-    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:24px}
-    .stat-card{background:var(--card);border-radius:14px;padding:20px;border:1px solid var(--border)}.stat-label{color:var(--muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-    .stat-value{font-size:1.8rem;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}.stat-sub{color:var(--muted);font-size:.9rem;margin-top:4px}
-    .section{background:var(--card);border-radius:16px;padding:24px;border:1px solid var(--border);margin-bottom:20px}
-    .section-title{font-size:1.25rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-    .tasks{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
-    .task{background:rgba(30,41,59,.7);border-radius:12px;padding:16px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}.task:hover{border-color:var(--primary)}
-    .task-info h4{font-weight:600;margin-bottom:4px}.task-info p{color:var(--muted);font-size:.9rem}
-    .reward{background:var(--grad);color:#fff;padding:6px 14px;border-radius:18px;font-weight:600;font-size:.85rem}
-    .btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px 20px;border-radius:12px;font-weight:600;font-size:1rem;cursor:pointer;transition:all.2s;border:none}
-    .btn-ad{background:var(--grad);color:#fff}.btn-ad:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 30px rgba(99,102,241,.4)}.btn-ad:disabled{opacity:.7;cursor:not-allowed;transform:none}
-    .btn-social{background:rgba(30,41,59,.9);color:var(--text);border:1px solid var(--border);text-decoration:none}.btn-social:hover{border-color:var(--primary);background:var(--card)}
-    .btn-social.claimed{opacity:.6;cursor:not-allowed}.timer{background:rgba(0,0,0,.3);padding:4px 10px;border-radius:6px;font-family:monospace;font-size:.9rem}
-    .withdraw{text-align:center}.withdraw-amount{font-size:2.2rem;font-weight:700;margin:12px 0;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-    .withdraw-btn{background:var(--success);color:#fff;padding:14px 28px;border-radius:12px;font-weight:600;border:none;cursor:pointer;margin-top:12px}.withdraw-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 10px 30px rgba(34,197,94,.4)}.withdraw-btn:disabled{opacity:.6;cursor:not-allowed}
-    .min-withdraw{color:var(--muted);font-size:.9rem;margin-top:6px}
-    .toast{position:fixed;bottom:20px;right:20px;background:var(--card);border:1px solid var(--border);border-left:4px solid var(--success);padding:14px 20px;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.3);display:none;animation:slideIn .3s ease;z-index:1000;max-width:320px}.toast.error{border-left-color:#ef4444}
-    @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
-    @media(max-width:768px){.header{flex-direction:column;align-items:flex-start;gap:12px}.user-info{text-align:left}.stat-value{font-size:1.5rem}}
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    * { font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #f1f5f9; }
+    .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(148, 163, 184, 0.1); }
+    .gradient-text { background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .btn-primary { background: linear-gradient(135deg, #6366f1, #8b5cf6); transition: all 0.2s; }
+    .btn-primary:active { transform: scale(0.98); }
+    .task-card { transition: all 0.2s; border: 1px solid rgba(148, 163, 184, 0.1); }
+    .task-card:hover { border-color: #6366f1; transform: translateY(-2px); }
+    .task-card.completed { opacity: 0.7; border-style: dashed; }
+    .skeleton { background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%); background-size: 200% 100%; animation: skeleton 1.5s infinite; }
+    @keyframes skeleton { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .toast { transform: translateX(120%); transition: transform 0.3s ease; }
+    .toast.show { transform: translateX(0); }
+    .modal { opacity: 0; visibility: hidden; transition: all 0.2s; }
+    .modal.active { opacity: 1; visibility: visible; }
+    .modal-content { transform: scale(0.95); transition: transform 0.2s; }
+    .modal.active .modal-content { transform: scale(1); }
+    @media (max-width: 640px) { .container { padding: 12px; } }
   </style>
 </head>
-<body>
-  <div class="container">
-    <header class="header">
-      <div class="logo">🔍 Ultimate Media Search</div>
-      <div class="user-info">
-        <div class="user-name" id="userName">Loading...</div>
-        <div class="user-id" id="userId">UID: ---</div>
-      </div>
-    </header>
+<body class="min-h-screen pb-24">
+  
+  {% if error %}
+  <div class="fixed inset-0 bg-dark-900 flex items-center justify-center z-50 p-4">
+    <div class="glass rounded-2xl p-6 max-w-sm w-full text-center">
+      <div class="text-4xl mb-4">⚠️</div>
+      <h3 class="text-lg font-semibold mb-2">Access Error</h3>
+      <p class="text-gray-400 text-sm mb-4">{{ error }}</p>
+      <a href="https://t.me/{{ config.bot_username or 'bot' }}" class="btn-primary text-white px-6 py-3 rounded-xl font-medium inline-block">
+        Open Telegram Bot
+      </a>
+    </div>
+  </div>
+  {% endif %}
 
-    <div class="stats">
-      <div class="stat-card">
-        <div class="stat-label">Total Points</div>
-        <div class="stat-value" id="points">0</div>
-        <div class="stat-sub">💰 <span id="usd">$0.00</span></div>
+  <!-- Header -->
+  <header class="sticky top-0 z-40 glass border-b border-dark-700">
+    <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-lg">🔍</div>
+        <div>
+          <h1 class="font-bold gradient-text">Ultimate Media</h1>
+          <p class="text-xs text-gray-400">Earn While You Scroll</p>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Tasks Done</div>
-        <div class="stat-value" id="tasks">0</div>
-        <div class="stat-sub">🎯 Keep earning!</div>
+      <div class="flex items-center gap-2">
+        <button id="notifBtn" class="relative p-2 rounded-lg hover:bg-dark-700 transition">
+          <span class="text-xl">🔔</span>
+          <span id="notifBadge" class="absolute -top-1 -right-1 w-5 h-5 bg-danger text-white text-xs rounded-full flex items-center justify-center hidden">0</span>
+        </button>
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center text-sm font-bold" id="userAvatar">
+          {{ user.first_name[:1] if user and user.first_name else 'U' }}
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Withdrawal</div>
-        <div class="stat-value" id="next">$1.00</div>
-        <div class="stat-sub">100 PTS = $1.00</div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="container mx-auto px-4 py-4 space-y-4">
+    
+    <!-- Welcome Banner -->
+    <div class="relative rounded-2xl overflow-hidden">
+      <img src="{{ banner_image }}" alt="Banner" class="w-full h-40 object-cover" onerror="this.src='https://via.placeholder.com/400x160/1e293b/6366f1?text=💎+Earn+Rewards'">
+      <div class="absolute inset-0 bg-gradient-to-t from-dark-900 via-dark-900/50 to-transparent"></div>
+      <div class="absolute bottom-4 left-4 right-4">
+        <h2 class="text-xl font-bold mb-1">👋 Welcome, {{ user.first_name or 'User' }}!</h2>
+        <p class="text-sm text-gray-300">Complete tasks • Earn points • Get paid</p>
       </div>
     </div>
 
-    <div class="section">
-      <h2 class="section-title">💎 Earn Points</h2>
-      <div class="tasks">
-        <div class="task"><div class="task-info"><h4>📺 Watch Advertisement</h4><p>View a short ad</p></div><div class="reward">+25 PTS</div></div>
-        <div class="task"><div class="task-info"><h4>▶️ YouTube Subscribe</h4><p>Follow our channel</p></div><div class="reward">+100 PTS</div></div>
-        <div class="task"><div class="task-info"><h4>📷 Instagram Follow</h4><p>Connect on Instagram</p></div><div class="reward">+100 PTS</div></div>
-        <div class="task"><div class="task-info"><h4>📘 Facebook Like</h4><p>Like our page</p></div><div class="reward">+100 PTS</div></div>
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-3 gap-3">
+      <div class="glass rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold gradient-text" id="pointsDisplay">{{ user.points | default(0) }}</div>
+        <div class="text-xs text-gray-400 mt-1">Points</div>
+        <div class="text-xs text-primary-400 mt-0.5" id="usdDisplay">${{ (user.points | default(0)) / config.points_per_dollar | round(2) }}</div>
+      </div>
+      <div class="glass rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-success" id="tasksDisplay">{{ user.tasks_completed | default(0) }}</div>
+        <div class="text-xs text-gray-400 mt-1">Completed</div>
+        <div class="text-xs text-gray-500 mt-0.5">Tasks</div>
+      </div>
+      <div class="glass rounded-xl p-4 text-center">
+        <div class="text-2xl font-bold text-warning" id="pendingDisplay">{{ (user.pending_submissions | length) if user and user.pending_submissions else 0 }}</div>
+        <div class="text-xs text-gray-400 mt-1">Pending</div>
+        <div class="text-xs text-gray-500 mt-0.5">Reviews</div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="glass rounded-xl p-4">
+      <h3 class="font-semibold mb-3 flex items-center gap-2">⚡ Quick Actions</h3>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="watchAd()" class="btn-primary text-white py-3 px-4 rounded-xl font-medium flex items-center justify-center gap-2">
+          <span>📺</span> Watch Ad <span class="text-xs opacity-80">+{{ config.ad_points }}</span>
+        </button>
+        <button onclick="showReferral()" class="glass py-3 px-4 rounded-xl font-medium flex items-center justify-center gap-2 hover:border-primary-500 transition">
+          <span>👥</span> Invite <span class="text-xs text-primary-400">+{{ config.referral_bonus }}</span>
+        </button>
+        <button onclick="navigateTo('withdraw')" class="glass py-3 px-4 rounded-xl font-medium flex items-center justify-center gap-2 hover:border-success transition">
+          <span>💰</span> Withdraw
+        </button>
+        <button onclick="refreshData()" class="glass py-3 px-4 rounded-xl font-medium flex items-center justify-center gap-2 hover:border-primary-500 transition">
+          <span>🔄</span> Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Tasks Section -->
+    <section class="glass rounded-xl p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold">💎 Earn Points</h3>
+        <span class="text-xs text-gray-400" id="taskCount">Loading...</span>
       </div>
       
-      <div style="margin-top:20px;display:grid;gap:10px">
-        <button id="adBtn" class="btn btn-ad" onclick="watchAd()">
-          <span>🎬</span><span id="adText">Watch Ad & Earn 25 Points</span><span id="adTimer" class="timer" style="display:none">30s</span>
+      <div id="tasksContainer" class="space-y-3">
+        <!-- Tasks loaded via JS -->
+        <div class="skeleton h-20 rounded-xl"></div>
+        <div class="skeleton h-20 rounded-xl"></div>
+        <div class="skeleton h-20 rounded-xl"></div>
+      </div>
+    </section>
+
+    <!-- Referral Section (Hidden by default) -->
+    <section id="referralSection" class="glass rounded-xl p-4 hidden">
+      <h3 class="font-semibold mb-3">👥 Invite Friends</h3>
+      <p class="text-sm text-gray-400 mb-4">Earn <span class="text-primary-400 font-medium">+{{ config.referral_bonus }} points</span> for each friend!</p>
+      
+      <div class="bg-dark-800 rounded-lg p-3 mb-4">
+        <div class="flex items-center justify-between">
+          <code id="referralLink" class="text-xs text-gray-300 truncate mr-2">Loading...</code>
+          <button onclick="copyReferral()" class="text-primary-400 text-sm font-medium hover:text-primary-300">Copy</button>
+        </div>
+      </div>
+      
+      <div id="referralStats" class="text-sm text-gray-400">
+        <div class="flex justify-between py-2 border-b border-dark-700">
+          <span>Total Referrals</span>
+          <span id="totalReferrals" class="font-medium">0</span>
+        </div>
+        <div class="flex justify-between py-2">
+          <span>Bonus Earned</span>
+          <span id="bonusEarned" class="font-medium text-success">0 pts</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Withdraw Section (Hidden by default) -->
+    <section id="withdrawSection" class="glass rounded-xl p-4 hidden">
+      <h3 class="font-semibold mb-3">💰 Withdraw Earnings</h3>
+      
+      <div class="text-center py-6">
+        <div class="text-4xl font-bold gradient-text mb-2" id="withdrawBalance">${{ (user.points | default(0)) / config.points_per_dollar | round(2) }}</div>
+        <p class="text-sm text-gray-400">Available Balance</p>
+      </div>
+      
+      {% if user and user.points < config.points_per_dollar %}
+      <div class="bg-warning/10 border border-warning/30 rounded-lg p-4 text-center mb-4">
+        <p class="text-sm text-warning">🎯 Need {{ config.points_per_dollar }} points ($1.00) to withdraw</p>
+        <p class="text-xs text-gray-400 mt-1">Keep completing tasks to reach the minimum!</p>
+      </div>
+      {% endif %}
+      
+      <div class="space-y-3">
+        <select id="withdrawMethod" class="w-full glass rounded-lg px-4 py-3 bg-dark-800 border border-dark-700 focus:border-primary-500 outline-none">
+          <option value="">Select Payment Method</option>
+          <option value="paypal">💳 PayPal</option>
+          <option value="crypto">₿ Crypto (USDT)</option>
+          <option value="bank">🏦 Bank Transfer</option>
+        </select>
+        
+        <input type="text" id="withdrawDetails" placeholder="Enter PayPal email / Wallet address" class="w-full glass rounded-lg px-4 py-3 bg-dark-800 border border-dark-700 focus:border-primary-500 outline-none">
+        
+        <button id="withdrawBtn" onclick="requestWithdrawal()" class="w-full btn-primary text-white py-3 px-4 rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed" {% if user and user.points < config.points_per_dollar %}disabled{% endif %}>
+          Request Withdrawal
         </button>
-        <a href="https://www.youtube.com/@Instagrampost1" target="_blank" class="btn btn-social" id="ytBtn" onclick="claimSocial('youtube',this)">
-          <span>▶️</span><span>Subscribe on YouTube</span><span style="margin-left:auto;background:var(--success);padding:4px 10px;border-radius:6px;font-size:.8rem">+100</span>
-        </a>
-        <a href="https://www.instagram.com/digital_rockstar_m" target="_blank" class="btn btn-social" id="igBtn" onclick="claimSocial('instagram',this)">
-          <span>📷</span><span>Follow on Instagram</span><span style="margin-left:auto;background:var(--success);padding:4px 10px;border-radius:6px;font-size:.8rem">+100</span>
-        </a>
-        <a href="https://www.facebook.com/profile.php?id=61574378159053" target="_blank" class="btn btn-social" id="fbBtn" onclick="claimSocial('facebook',this)">
-          <span>📘</span><span>Like on Facebook</span><span style="margin-left:auto;background:var(--success);padding:4px 10px;border-radius:6px;font-size:.8rem">+100</span>
-        </a>
+      </div>
+      
+      <p class="text-xs text-gray-500 text-center mt-4">
+        ⏱️ Processing time: 24-48 hours • Minimum: $1.00 • Fees may apply
+      </p>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="fixed bottom-0 left-0 right-0 glass border-t border-dark-700 z-50">
+    <div class="container mx-auto px-4">
+      <div class="flex justify-around py-2">
+        <button onclick="navigateTo('home')" class="nav-btn active flex flex-col items-center gap-1 py-2 px-4" data-section="home">
+          <span class="text-xl">🏠</span>
+          <span class="text-xs">Home</span>
+        </button>
+        <button onclick="navigateTo('tasks')" class="nav-btn flex flex-col items-center gap-1 py-2 px-4" data-section="tasks">
+          <span class="text-xl">📋</span>
+          <span class="text-xs">Tasks</span>
+        </button>
+        <button onclick="navigateTo('referral')" class="nav-btn flex flex-col items-center gap-1 py-2 px-4" data-section="referral">
+          <span class="text-xl">👥</span>
+          <span class="text-xs">Invite</span>
+        </button>
+        <button onclick="navigateTo('withdraw')" class="nav-btn flex flex-col items-center gap-1 py-2 px-4" data-section="withdraw">
+          <span class="text-xl">💰</span>
+          <span class="text-xs">Withdraw</span>
+        </button>
       </div>
     </div>
+  </nav>
 
-    <div class="section withdraw">
-      <h2 class="section-title" style="justify-content:center">💰 Withdraw</h2>
-      <div class="withdraw-amount" id="withdrawAmt">$0.00</div>
-      <p class="min-withdraw">Minimum: $1.00 (100 Points)</p>
-      <button class="withdraw-btn" id="withdrawBtn" onclick="requestWithdraw()" disabled>Request Withdrawal</button>
+  <!-- Toast Notification -->
+  <div id="toast" class="toast fixed bottom-20 right-4 glass rounded-xl p-4 shadow-lg max-w-xs z-50 flex items-start gap-3">
+    <span id="toastIcon" class="text-xl">✅</span>
+    <div>
+      <p id="toastMessage" class="text-sm font-medium">Success!</p>
+      <p id="toastSub" class="text-xs text-gray-400 mt-0.5"></p>
     </div>
   </div>
 
-  <div id="toast" class="toast"><span id="toastMsg"></span></div>
+  <!-- Task Submission Modal -->
+  <div id="submitModal" class="modal fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div class="modal-content glass rounded-2xl w-full max-w-md p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold" id="modalTitle">Submit Task</h3>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-white text-xl">&times;</button>
+      </div>
+      
+      <div id="modalRequirements" class="mb-4 text-sm text-gray-300 space-y-2">
+        <!-- Requirements injected via JS -->
+      </div>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">📸 Screenshot URL</label>
+          <input type="url" id="screenshotUrl" placeholder="https://i.ibb.co/..." class="w-full glass rounded-lg px-4 py-3 bg-dark-800 border border-dark-700 focus:border-primary-500 outline-none text-sm">
+          <p class="text-xs text-gray-500 mt-1">Upload to ImgBB, PostImage, etc. and paste direct link</p>
+        </div>
+        
+        <div>
+          <label class="block text-sm text-gray-400 mb-2">📝 Proof Text (Optional)</label>
+          <input type="text" id="proofText" placeholder="Your username / video title" class="w-full glass rounded-lg px-4 py-3 bg-dark-800 border border-dark-700 focus:border-primary-500 outline-none text-sm" maxlength="200">
+        </div>
+        
+        <button onclick="submitTask()" id="submitBtn" class="w-full btn-primary text-white py-3 px-4 rounded-xl font-medium">
+          Submit for Review
+        </button>
+      </div>
+      
+      <p class="text-xs text-gray-500 text-center mt-4">
+        ⏱️ Review time: ~24 hours • Fake submissions = permanent ban
+      </p>
+    </div>
+  </div>
 
+  <!-- Notifications Modal -->
+  <div id="notifModal" class="modal fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-4">
+    <div class="modal-content glass rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden">
+      <div class="p-4 border-b border-dark-700 flex items-center justify-between">
+        <h3 class="font-semibold">🔔 Notifications</h3>
+        <button onclick="closeNotifModal()" class="text-gray-400 hover:text-white">&times;</button>
+      </div>
+      <div id="notifList" class="p-4 space-y-3 overflow-y-auto max-h-96">
+        <!-- Notifications loaded via JS -->
+        <p class="text-sm text-gray-400 text-center py-4">No new notifications</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase & App Config -->
   <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyD50eWvysruXgtgpDhhCVE2zdbSbLkFBwk",
-      authDomain: "ultimatemediasearch.firebaseapp.com",
-      databaseURL: "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "ultimatemediasearch",
-      storageBucket: "ultimatemediasearch.firebasestorage.app",
-      messagingSenderId: "123003124713",
-      appId: "1:123003124713:web:c738c97b2772b112822978"
-    };
+    // Firebase Config (from server)
+    const firebaseConfig = {{ firebase_config | tojson | safe }};
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get('id');
-    const userName = params.get('name') || 'User';
-    const $ = id => document.getElementById(id);
-    const els = {
-      name: $('userName'), uid: $('userId'), points: $('points'), usd: $('usd'),
-      tasks: $('tasks'), next: $('next'), withdrawAmt: $('withdrawAmt'),
-      withdrawBtn: $('withdrawBtn'), adBtn: $('adBtn'), adText: $('adText'), adTimer: $('adTimer')
-    };
-
-    const PTS_PER_USD = 100, AD_PTS = 25, SOCIAL_PTS = 100, AD_SEC = 30;
-    let claimed = JSON.parse(localStorage.getItem(`claimed_${userId}`) || '{}');
-
-    document.addEventListener('DOMContentLoaded', () => {
-      if (!userId) { showToast('Invalid link. Open from Telegram bot.', 'error'); return; }
-      els.name.textContent = userName;
-      els.uid.textContent = `UID: ${userId}`;
-      loadUserData();
-      updateSocialUI();
-    });
-
-    function loadUserData() {
-      db.ref(`users/${userId}`).on('value', snap => {
-        const data = snap.val();
-        if (!data) return;
-        const pts = data.points || 0, usd = (pts / PTS_PER_USD).toFixed(2);
-        animateValue(els.points, parseInt(els.points.textContent)||0, pts, 400);
-        els.usd.textContent = `$${usd}`;
-        els.withdrawAmt.textContent = `$${usd}`;
-        els.withdrawBtn.disabled = pts < PTS_PER_USD;
-        const history = data.history || {};
-        els.tasks.textContent = Object.keys(history).length;
-      }, err => { console.error('Firebase:', err); showToast('Connection error', 'error'); });
-    }
-
-    function animateValue(el, start, end, duration) {
-      let startTimestamp = null;
-      const step = (timestamp) => {
-        if (!startTimestamp) startTimestamp = timestamp;
-        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        const value = Math.floor(progress * (end - start) + start);
-        el.textContent = value;
-        if (progress < 1) window.requestAnimationFrame(step);
-      };
-      window.requestAnimationFrame(step);
-    }
-
-    function updateSocialUI() {
-      const tasks = [
-        {platform: 'youtube', btnId: 'ytBtn'},
-        {platform: 'instagram', btnId: 'igBtn'},
-        {platform: 'facebook', btnId: 'fbBtn'}
-      ];
-      tasks.forEach(task => {
-        const btn = document.getElementById(task.btnId);
-        if (btn && claimed[task.platform]) {
-          btn.classList.add('claimed');
-          const badge = btn.querySelector('span:last-child');
-          if (badge) badge.textContent = '✓ Claimed';
-          btn.style.pointerEvents = 'none';
-          btn.style.opacity = '0.6';
-        }
-      });
-    }
-
-    function watchAd() {
-      if (els.adBtn.disabled) return;
-      els.adBtn.disabled = true;
-      els.adText.textContent = '⏳ Watching Ad...';
-      els.adTimer.style.display = 'inline';
-      let seconds = AD_SEC;
-      els.adTimer.textContent = `${seconds}s`;
-      const timer = setInterval(() => {
-        seconds--;
-        els.adTimer.textContent = `${seconds}s`;
-        if (seconds <= 0) {
-          clearInterval(timer);
-          completeAd();
-        }
-      }, 1000);
-    }
-
-    async function completeAd() {
-      try {
-        window.open('https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b', '_blank');
-        const res = await fetch('/api/earn/ad', {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({user_id: parseInt(userId)})
-        });
-        const data = await res.json();
-        if (data.success) showToast(`🎉 +${AD_PTS} Points Added!`, 'success');
-        else throw new Error(data.error);
-      } catch(e) {
-        console.error('Ad claim error:', e);
-        showToast('❌ Failed to claim points', 'error');
-      } finally {
-        els.adBtn.disabled = false;
-        els.adText.textContent = '🎬 Watch Ad & Earn 25 Points';
-        els.adTimer.style.display = 'none';
-      }
-    }
-
-    async function claimSocial(platform, el) {
-      if (claimed[platform]) { showToast('✅ Already claimed!', 'error'); return; }
-      claimed[platform] = true;
-      localStorage.setItem(`claimed_${userId}`, JSON.stringify(claimed));
-      updateSocialUI();
-      try {
-        const res = await fetch('/api/earn/social', {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({user_id: parseInt(userId), task: platform})
-        });
-        const data = await res.json();
-        if (data.success) showToast(`🎉 +${SOCIAL_PTS} Points Added!`, 'success');
-        else {
-          claimed[platform] = false;
-          localStorage.setItem(`claimed_${userId}`, JSON.stringify(claimed));
-          updateSocialUI();
-          throw new Error(data.error);
-        }
-      } catch(e) {
-        console.error('Social claim error:', e);
-        showToast('❌ Claim failed. Try again!', 'error');
-      }
-    }
-
-    function requestWithdraw() {
-      const points = parseInt(els.points.textContent) || 0;
-      if (points < PTS_PER_USD) {
-        showToast('💰 Need 100 points to withdraw!', 'error');
-        return;
-      }
-      showToast('✅ Withdrawal request submitted! Check Telegram.', 'success');
-    }
-
-    function showToast(message, type = 'success') {
-      const toast = $('toast'), msg = $('toastMsg');
-      msg.textContent = message;
-      toast.className = `toast ${type}`;
-      toast.style.display = 'block';
-      setTimeout(() => { toast.style.display = 'none'; }, 4000);
+    
+    // App Config
+    const APP_CONFIG = {{ config | tojson | safe }};
+    const INITIAL_DATA = {{ initial_data | tojson | safe }};
+    const USER_DATA = {{ user | tojson | safe }};
+    
+    // Telegram WebApp
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#0f172a');
     }
   </script>
+  
+  <!-- Main App Logic -->
+  <script src="{{ url_for('static', filename='js/firebase-config.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  
 </body>
 </html>
