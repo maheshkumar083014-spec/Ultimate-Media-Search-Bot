@@ -24,12 +24,16 @@
       "dest": "api/index.py"
     },
     {
+      "src": "/health",
+      "dest": "api/index.py"
+    },
+    {
       "src": "/",
       "dest": "api/index.py"
     }
   ],
   "env": {
-    "FIREBASE_SERVICE_ACCOUNT": "@firebase_config",
-    "PYTHONPATH": "."
+    "PYTHONPATH": ".",
+    "FLASK_ENV": "production"
   }
 }
