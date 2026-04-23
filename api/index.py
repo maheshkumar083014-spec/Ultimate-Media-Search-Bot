@@ -7,7 +7,7 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for
 import telebot
 from telebot import types
 import firebase_admin
-from firebase_admin import credentials, db, initialize_app
+from firebase_admin import db, initialize_app
 from openai import OpenAI
 
 # ==================== CONFIGURATION ====================
@@ -17,26 +17,16 @@ app = Flask(__name__, template_folder='../templates', static_folder='../static')
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw')
 FIREBASE_DB_URL = os.environ.get('FIREBASE_DATABASE_URL', 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/')
 DEEPSEEK_API_KEY = os.environ.get('DEEPSEEK_API_KEY', 'sk-783d645ce9e84eb8b954786a016561ea')
-ADMIN_TELEGRAM_ID = os.environ.get('ADMIN_TELEGRAM_ID', '123456789')  # Replace with your actual ID
+ADMIN_TELEGRAM_ID = os.environ.get('ADMIN_TELEGRAM_ID', '123456789')
 UPI_ID = os.environ.get('UPI_ID', '8543083014@ikwik')
 QR_CODE_URL = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" + UPI_ID
 
-# Initialize Firebase
-if not firebase_admin._apps:
-    cred = credentials.Certificate({
-        "type": "service_account",
-        "project_id": "ultimatemediasearch",
-        "private_key_id": "dummy",
-        "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC7+t...\n-----END PRIVATE KEY-----\n",
-        "client_email": "firebase-adminsdk-dummy@ultimatemediasearch.iam.gserviceaccount.com",
-        "client_id": "dummy",
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-dummy%40ultimatemediasearch.iam.gserviceaccount.com"
-    })
-    # For Realtime Database only, we can use direct URL
-    initialize_app(options={'databaseURL': FIREBASE_DB_URL})
+# Initialize Firebase (FIXED - No dummy credentials)
+try:
+    if not firebase_admin._apps:
+        initialize_app(options={'databaseURL': FIREBASE_DB_URL})
+except Exception as e:
+    print(f"⚠️ Firebase init warning: {e}")
 
 # Initialize Telegram Bot
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode='HTML')
@@ -53,7 +43,8 @@ def get_user_data(user_id):
     try:
         user_ref = db.reference(f'users/{user_id}')
         return user_ref.get()
-    except:
+    except Exception as e:
+        print(f"Error fetching user data: {e}")
         return None
 
 def update_user_data(user_id, data):
@@ -62,7 +53,8 @@ def update_user_data(user_id, data):
         user_ref = db.reference(f'users/{user_id}')
         user_ref.update(data)
         return True
-    except:
+    except Exception as e:
+        print(f"Error updating user data: {e}")
         return False
 
 def register_user(user_id, username, first_name, referral_code=None):
@@ -81,23 +73,24 @@ def register_user(user_id, username, first_name, referral_code=None):
         'pending_payments': []
     }
     
-    # Add referral bonus if applicable
-    if referral_code:
-        # Find referrer
-        users_ref = db.reference('users')
-        all_users = users_ref.get()
-        if all_users:
-            for uid, data in all_users.items():
-                if data.get('referral_code') == referral_code:
-                    # Award bonus to referrer
-                    referrer_balance = data.get('balance', 0) + 50
-                    users_ref.child(uid).update({'balance': referrer_balance})
-                    # Award bonus to new user
-                    user_data['balance'] = 25
-                    break
-    
-    db.reference(f'users/{user_id}').set(user_data)
-    return user_data
+    try:
+        # Add referral bonus if applicable
+        if referral_code:
+            users_ref = db.reference('users')
+            all_users = users_ref.get()
+            if all_users:
+                for uid, data in all_users.items():
+                    if data.get('referral_code') == referral_code:
+                        referrer_balance = data.get('balance', 0) + 50
+                        users_ref.child(uid).update({'balance': referrer_balance})
+                        user_data['balance'] = 25
+                        break
+        
+        db.reference(f'users/{user_id}').set(user_data)
+        return user_data
+    except Exception as e:
+        print(f"Error registering user: {e}")
+        return user_data
 
 def deduct_balance(user_id, amount):
     """Deduct points from user balance"""
@@ -129,28 +122,25 @@ def generate_ai_response(message, user_data):
 # ==================== TELEGRAM BOT HANDLERS ====================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    user_id = message.from_user.id
-    username = message.from_user.username or 'User'
-    first_name = message.from_user.first_name
-    
-    # Check if user exists
-    user_data = get_user_data(user_id)
-    if not user_data:
-        # Extract referral code if present
-        referral_code = None
-        if len(message.text.split()) > 1:
-            referral_code = message.text.split()[1]
-        user_data = register_user(user_id, username, first_name, referral_code)
-    
-    # Update last active
-    update_user_data(user_id, {'last_active': int(time.time()), 'username': username})
-    
-    # Send welcome photo with dynamic caption
-    photo_url = "https://i.ibb.co/3b5pScM/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg"
-    balance = user_data.get('balance', 0)
-    status = "🌟 PREMIUM" if user_data.get('is_premium') else "⚡ FREE"
-    
-    caption = f"""
+    try:
+        user_id = message.from_user.id
+        username = message.from_user.username or 'User'
+        first_name = message.from_user.first_name
+        
+        user_data = get_user_data(user_id)
+        if not user_data:
+            referral_code = None
+            if len(message.text.split()) > 1:
+                referral_code = message.text.split()[1]
+            user_data = register_user(user_id, username, first_name, referral_code)
+        
+        update_user_data(user_id, {'last_active': int(time.time()), 'username': username})
+        
+        photo_url = "https://i.ibb.co/3b5pScM/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg"
+        balance = user_data.get('balance', 0)
+        status = "🌟 PREMIUM" if user_data.get('is_premium') else "⚡ FREE"
+        
+        caption = f"""
 👋 Welcome, {first_name}!
 
 📊 <b>Your Dashboard</b>
@@ -175,77 +165,89 @@ def send_welcome(message):
 📸 Instagram: @digital_rockstar_m
 📘 Facebook: UltimateMediaSearch
     """
-    
-    bot.send_photo(message.chat.id, photo_url, caption=caption, reply_markup=get_main_keyboard())
+        
+        bot.send_photo(message.chat.id, photo_url, caption=caption, reply_markup=get_main_keyboard())
+    except Exception as e:
+        print(f"Error in /start: {e}")
+        bot.reply_to(message, "❌ An error occurred. Please try again later.")
 
 @bot.message_handler(commands=['ai'])
 def ai_chat_command(message):
-    user_id = message.from_user.id
-    user_data = get_user_data(user_id)
-    
-    if not user_data:
-        bot.reply_to(message, "❌ Please start the bot first with /start")
-        return
-    
-    # Check balance for free users
-    if not user_data.get('is_premium'):
-        if user_data.get('balance', 0) < 10:
-            bot.reply_to(message, "❌ Insufficient balance! Free users need 10 pts per AI message.\n\n💡 Earn points: /dashboard\n🎁 Upgrade to Premium for unlimited AI!")
+    try:
+        user_id = message.from_user.id
+        user_data = get_user_data(user_id)
+        
+        if not user_data:
+            bot.reply_to(message, "❌ Please start the bot first with /start")
             return
-        deduct_balance(user_id, 10)
-    
-    # Send typing indicator
-    bot.send_chat_action(message.chat.id, 'typing')
-    
-    # Get AI response
-    user_message = message.text.replace('/ai', '').strip()
-    if not user_message:
-        bot.reply_to(message, "💬 Please type your message after /ai command")
-        return
-    
-    ai_response = generate_ai_response(user_message, user_data)
-    
-    # Update message count
-    total_msgs = user_data.get('total_messages', 0) + 1
-    update_user_data(user_id, {'total_messages': total_msgs})
-    
-    bot.reply_to(message, f"🤖 {ai_response}")
+        
+        if not user_data.get('is_premium'):
+            if user_data.get('balance', 0) < 10:
+                bot.reply_to(message, "❌ Insufficient balance! Free users need 10 pts per AI message.\n\n💡 Earn points: /dashboard\n🎁 Upgrade to Premium for unlimited AI!")
+                return
+            deduct_balance(user_id, 10)
+        
+        bot.send_chat_action(message.chat.id, 'typing')
+        
+        user_message = message.text.replace('/ai', '').strip()
+        if not user_message:
+            bot.reply_to(message, "💬 Please type your message after /ai command")
+            return
+        
+        ai_response = generate_ai_response(user_message, user_data)
+        
+        total_msgs = user_data.get('total_messages', 0) + 1
+        update_user_data(user_id, {'total_messages': total_msgs})
+        
+        bot.reply_to(message, f"🤖 {ai_response}")
+    except Exception as e:
+        print(f"Error in /ai: {e}")
+        bot.reply_to(message, "❌ An error occurred. Please try again later.")
 
 @bot.message_handler(commands=['dashboard'])
 def dashboard_command(message):
-    user_id = message.from_user.id
-    user_data = get_user_data(user_id)
-    
-    if not user_data:
-        bot.reply_to(message, "❌ Please start with /start first")
-        return
-    
-    # Generate secure dashboard link (simple token)
-    token = hashlib.sha256(f"{user_id}{time.time()}".encode()).hexdigest()[:16]
-    # In production, store token in DB with expiry
-    dashboard_url = f"https://your-vercel-app.vercel.app/dashboard?uid={user_id}&token={token}"
-    
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🌐 Open Dashboard", url=dashboard_url))
-    
-    bot.send_message(message.chat.id, "🔗 Click below to open your Glassmorphism Dashboard:", reply_markup=markup)
+    try:
+        user_id = message.from_user.id
+        user_data = get_user_data(user_id)
+        
+        if not user_data:
+            bot.reply_to(message, "❌ Please start with /start first")
+            return
+        
+        token = hashlib.sha256(f"{user_id}{time.time()}".encode()).hexdigest()[:16]
+        webhook_url = os.environ.get('VERCEL_URL', request.host_url.rstrip('/'))
+        dashboard_url = f"https://{webhook_url.replace('https://', '').replace('http://', '')}/dashboard?uid={user_id}&token={token}"
+        
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("🌐 Open Dashboard", url=dashboard_url))
+        
+        bot.send_message(message.chat.id, "🔗 Click below to open your Glassmorphism Dashboard:", reply_markup=markup)
+    except Exception as e:
+        print(f"Error in /dashboard: {e}")
+        bot.reply_to(message, "❌ An error occurred. Please try again later.")
 
 @bot.message_handler(commands=['admin'])
 def admin_command(message):
-    user_id = str(message.from_user.id)
-    if user_id != str(ADMIN_TELEGRAM_ID):
-        bot.reply_to(message, "🔐 Admin access denied.")
-        return
-    
-    admin_url = f"https://your-vercel-app.vercel.app/admin?token={hashlib.sha256(f'admin_{time.time()}'.encode()).hexdigest()[:16]}"
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("⚙️ Open Admin Panel", url=admin_url))
-    
-    bot.send_message(message.chat.id, "👨‍💻 Admin Control Panel:", reply_markup=markup)
+    try:
+        user_id = str(message.from_user.id)
+        if user_id != str(ADMIN_TELEGRAM_ID):
+            bot.reply_to(message, "🔐 Admin access denied.")
+            return
+        
+        webhook_url = os.environ.get('VERCEL_URL', request.host_url.rstrip('/'))
+        admin_url = f"https://{webhook_url.replace('https://', '').replace('http://', '')}/admin?token={hashlib.sha256(f'admin_{time.time()}'.encode()).hexdigest()[:16]}"
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("⚙️ Open Admin Panel", url=admin_url))
+        
+        bot.send_message(message.chat.id, "👨‍💻 Admin Control Panel:", reply_markup=markup)
+    except Exception as e:
+        print(f"Error in /admin: {e}")
+        bot.reply_to(message, "❌ An error occurred.")
 
 @bot.message_handler(commands=['help'])
 def help_command(message):
-    help_text = """
+    try:
+        help_text = """
 📚 <b>Ultimate Media Search - Help Guide</b>
 
 🤖 <b>AI Chat</b>
@@ -282,7 +284,9 @@ def help_command(message):
 • Premium payments are non-refundable
 • Bot usage subject to Telegram ToS
     """
-    bot.send_message(message.chat.id, help_text, reply_markup=get_main_keyboard())
+        bot.send_message(message.chat.id, help_text, reply_markup=get_main_keyboard())
+    except Exception as e:
+        print(f"Error in /help: {e}")
 
 def get_main_keyboard():
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -297,60 +301,62 @@ def home():
 
 @app.route('/dashboard')
 def dashboard():
-    user_id = request.args.get('uid')
-    token = request.args.get('token')
-    
-    if not user_id:
-        return "❌ Invalid access. Please use /dashboard from Telegram bot.", 400
-    
-    user_data = get_user_data(user_id)
-    if not user_data:
-        return "❌ User not found. Please start the bot with /start", 404
-    
-    # Simple token validation (enhance in production)
-    expected_token = hashlib.sha256(f"{user_id}".encode()).hexdigest()[:16]
-    
-    return render_template('dashboard.html', 
-                         user=user_data, 
-                         upi_id=UPI_ID, 
-                         qr_code=QR_CODE_URL,
-                         social_links={
-                             'youtube': '@USSoccerPulse',
-                             'instagram': '@digital_rockstar_m', 
-                             'facebook': 'UltimateMediaSearch'
-                         })
+    try:
+        user_id = request.args.get('uid')
+        token = request.args.get('token')
+        
+        if not user_id:
+            return "❌ Invalid access. Please use /dashboard from Telegram bot.", 400
+        
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return "❌ User not found. Please start the bot with /start", 404
+        
+        return render_template('dashboard.html', 
+                             user=user_data, 
+                             upi_id=UPI_ID, 
+                             qr_code=QR_CODE_URL,
+                             social_links={
+                                 'youtube': '@USSoccerPulse',
+                                 'instagram': '@digital_rockstar_m', 
+                                 'facebook': 'UltimateMediaSearch'
+                             })
+    except Exception as e:
+        print(f"Error in /dashboard route: {e}")
+        return f"❌ Server Error: {str(e)}", 500
 
 @app.route('/admin')
 def admin_panel():
-    # Simple auth check (enhance with proper sessions in production)
-    token = request.args.get('token')
-    if not token:
-        return "🔐 Admin authentication required", 401
-    
-    # Fetch pending payments
-    pending_payments = []
     try:
-        users_ref = db.reference('users')
-        all_users = users_ref.get()
-        if all_users:
-            for uid, data in all_users.items():
-                if data.get('pending_payments'):
-                    for payment in data['pending_payments']:
-                        pending_payments.append({
-                            'user_id': uid,
-                            'username': data.get('username'),
-                            'payment': payment
-                        })
-    except:
-        pass
-    
-    return render_template('admin.html', 
-                         pending_payments=pending_payments,
-                         admin_id=ADMIN_TELEGRAM_ID)
+        token = request.args.get('token')
+        if not token:
+            return "🔐 Admin authentication required", 401
+        
+        pending_payments = []
+        try:
+            users_ref = db.reference('users')
+            all_users = users_ref.get()
+            if all_users:
+                for uid, data in all_users.items():
+                    if data.get('pending_payments'):
+                        for payment in data['pending_payments']:
+                            pending_payments.append({
+                                'user_id': uid,
+                                'username': data.get('username'),
+                                'payment': payment
+                            })
+        except:
+            pass
+        
+        return render_template('admin.html', 
+                             pending_payments=pending_payments,
+                             admin_id=ADMIN_TELEGRAM_ID)
+    except Exception as e:
+        print(f"Error in /admin route: {e}")
+        return f"❌ Server Error: {str(e)}", 500
 
 @app.route('/api/chat', methods=['POST'])
 def api_chat():
-    """AI Chat Endpoint for Dashboard"""
     try:
         data = request.json
         user_id = data.get('user_id')
@@ -363,16 +369,13 @@ def api_chat():
         if not user_data:
             return jsonify({'error': 'User not found'}), 404
         
-        # Check balance for free users
         if not user_data.get('is_premium'):
             if user_data.get('balance', 0) < 10:
                 return jsonify({'error': 'Insufficient balance. Free users need 10 pts per message.'}), 402
             deduct_balance(user_id, 10)
         
-        # Generate AI response
         response = generate_ai_response(message, user_data)
         
-        # Update stats
         total_msgs = user_data.get('total_messages', 0) + 1
         update_user_data(user_id, {'total_messages': total_msgs, 'last_active': int(time.time())})
         
@@ -382,11 +385,11 @@ def api_chat():
         })
         
     except Exception as e:
+        print(f"Error in /api/chat: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/submit-payment', methods=['POST'])
 def submit_payment():
-    """Handle Premium Payment Submission"""
     try:
         data = request.json
         user_id = data.get('user_id')
@@ -403,7 +406,6 @@ def submit_payment():
             'status': 'pending'
         }
         
-        # Add to user's pending payments
         user_ref = db.reference(f'users/{user_id}/pending_payments')
         payment_key = user_ref.push(payment_record).key
         
@@ -414,11 +416,11 @@ def submit_payment():
         })
         
     except Exception as e:
+        print(f"Error in /api/submit-payment: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/approve-payment', methods=['POST'])
 def approve_payment():
-    """Admin: Approve Premium Payment"""
     try:
         data = request.json
         user_id = data.get('user_id')
@@ -427,17 +429,14 @@ def approve_payment():
         if not all([user_id, payment_id]):
             return jsonify({'error': 'Missing user_id or payment_id'}), 400
         
-        # Update payment status
         payment_ref = db.reference(f'users/{user_id}/pending_payments/{payment_id}')
         payment_ref.update({'status': 'approved', 'approved_at': int(time.time())})
         
-        # Upgrade user to premium
         db.reference(f'users/{user_id}').update({
             'is_premium': True,
             'premium_since': int(time.time())
         })
         
-        # Notify user via Telegram
         try:
             bot.send_message(
                 user_id, 
@@ -445,16 +444,16 @@ def approve_payment():
                 parse_mode='HTML'
             )
         except:
-            pass  # Bot might be offline
+            pass
         
         return jsonify({'success': True, 'message': 'Premium activated successfully'})
         
     except Exception as e:
+        print(f"Error in /api/approve-payment: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/reject-payment', methods=['POST'])
 def reject_payment():
-    """Admin: Reject Premium Payment"""
     try:
         data = request.json
         user_id = data.get('user_id')
@@ -464,11 +463,9 @@ def reject_payment():
         if not all([user_id, payment_id]):
             return jsonify({'error': 'Missing user_id or payment_id'}), 400
         
-        # Update payment status
         payment_ref = db.reference(f'users/{user_id}/pending_payments/{payment_id}')
         payment_ref.update({'status': 'rejected', 'rejected_at': int(time.time()), 'rejection_reason': reason})
         
-        # Notify user
         try:
             bot.send_message(
                 user_id,
@@ -481,11 +478,11 @@ def reject_payment():
         return jsonify({'success': True, 'message': 'Payment rejected'})
         
     except Exception as e:
+        print(f"Error in /api/reject-payment: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/broadcast', methods=['POST'])
 def broadcast_message():
-    """Admin: Broadcast message to all users"""
     try:
         data = request.json
         message = data.get('message')
@@ -494,7 +491,6 @@ def broadcast_message():
         if not message or admin_token != hashlib.sha256(f'admin_{ADMIN_TELEGRAM_ID}'.encode()).hexdigest()[:16]:
             return jsonify({'error': 'Unauthorized'}), 401
         
-        # Get all user IDs
         users_ref = db.reference('users')
         all_users = users_ref.get()
         
@@ -505,39 +501,29 @@ def broadcast_message():
                     bot.send_message(uid, f"📢 <b>Broadcast</b>\n\n{message}", parse_mode='HTML')
                     sent_count += 1
                 except:
-                    continue  # Skip users who blocked the bot
+                    continue
         
         return jsonify({'success': True, 'sent_to': sent_count})
         
     except Exception as e:
+        print(f"Error in /api/broadcast: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    """Telegram Webhook Handler for Vercel"""
-    if request.headers.get('content-type') == 'application/json':
-        update = telebot.types.Update.de_json(request.get_json(force=True))
-        bot.process_new_updates([update])
-        return '', 200
-    return '', 403
+    try:
+        if request.headers.get('content-type') == 'application/json':
+            update = telebot.types.Update.de_json(request.get_json(force=True))
+            bot.process_new_updates([update])
+            return '', 200
+        return '', 403
+    except Exception as e:
+        print(f"Error in webhook: {e}")
+        return '', 500
 
-# Set webhook on startup (for Vercel)
-def set_webhook():
-    webhook_url = os.environ.get('VERCEL_URL', 'http://localhost:5000')
-    if webhook_url:
-        webhook_url = f"https://{webhook_url}/webhook"
-        try:
-            bot.remove_webhook()
-            bot.set_webhook(webhook_url)
-            print(f"✅ Webhook set to: {webhook_url}")
-        except Exception as e:
-            print(f"⚠️ Webhook setup failed: {e}")
+# ==================== REMOVE WEBHOOK ON STARTUP (VERCEL SAFE) ====================
+# Don't set webhook automatically on Vercel - do it manually via Telegram API
 
 # ==================== APP ENTRY POINT ====================
 if __name__ == '__main__':
-    # For local development
-    set_webhook()
     app.run(host='0.0.0.0', port=5000, debug=True)
-else:
-    # For Vercel serverless
-    set_webhook()
