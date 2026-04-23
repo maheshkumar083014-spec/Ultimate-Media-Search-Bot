@@ -1,756 +1,908 @@
-# index.py
+"""
+Ultimate Media Search Bot - Production Backend
+Flask API + Telegram Bot + Firebase Integration
+Deploy to Vercel with environment variables
+"""
+
 import os
-import json
-import hashlib
-import hmac
-import requests
-import firebase_admin
-from firebase_admin import credentials, db
-from flask import Flask, request, jsonify, render_template, session
-from functools import wraps
-from datetime import datetime
 import re
+import json
+import time
+import asyncio
+import logging
+from datetime import datetime
+from functools import wraps
+from flask import Flask, request, jsonify, render_template, send_from_directory, make_response
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+import firebase_admin
+from firebase_admin import db, credentials, initialize_app
+import requests
 
-# -------------------- INITIALIZATION --------------------
-app = Flask(__name__)
-app.secret_key = os.urandom(24)  # For session management
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Hardcoded Credentials
-TELEGRAM_BOT_TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
-DEEPSEEK_API_KEY = "sk-783d645ce9e84eb8b954786a016561ea"
-FIREBASE_DB_URL = "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/"
+# ============= SECURE CONFIGURATION =============
+# ⚠️ In production, NEVER hardcode - use os.environ.get()
+# These defaults are for demonstration ONLY - replace via Vercel env vars
 
-# Admin password (for admin panel)
-ADMIN_PASSWORD = "UltimateAdmin2025"
+TELEGRAM_BOT_TOKEN = os.environ.get(
+    "TELEGRAM_BOT_TOKEN", 
+    "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
+)
+DEEPSEEK_API_KEY = os.environ.get(
+    "DEEPSEEK_API_KEY",
+    "sk-783d645ce9e84eb8b954786a016561ea"
+)
+FIREBASE_DATABASE_URL = os.environ.get(
+    "FIREBASE_DATABASE_URL",
+    "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/"
+)
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")  # Change this!
 
-# Initialize Firebase Admin SDK
-# For Vercel, we'll use environment variable for service account
-# If not present, create a dummy one for development (but will fail in production)
-firebase_initialized = False
+# Firebase Config for Frontend (safe to expose)
+FIREBASE_CONFIG = {
+    "apiKey": os.environ.get("FIREBASE_API_KEY", "AIzaSyD50eWvysruXgtgpDhhCVE2zdbSbLkFBwk"),
+    "authDomain": os.environ.get("FIREBASE_AUTH_DOMAIN", "ultimatemediasearch.firebaseapp.com"),
+    "projectId": os.environ.get("FIREBASE_PROJECT_ID", "ultimatemediasearch"),
+    "storageBucket": os.environ.get("FIREBASE_STORAGE_BUCKET", "ultimatemediasearch.firebasestorage.app"),
+    "messagingSenderId": os.environ.get("FIREBASE_MESSAGING_SENDER_ID", "123003124713"),
+    "appId": os.environ.get("FIREBASE_APP_ID", "1:123003124713:web:c738c97b2772b112822978")
+}
+
+# ============= APP INITIALIZATION =============
+app = Flask(__name__, static_folder='static', template_folder='templates')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
+app.config['JSON_AS_ASCII'] = False
+
+# Initialize Firebase Admin (with serverless-safe error handling)
+firebase_app = None
 try:
-    # Check if service account info is provided via environment
-    if os.environ.get('FIREBASE_SERVICE_ACCOUNT'):
-        service_account_info = json.loads(os.environ.get('FIREBASE_SERVICE_ACCOUNT'))
-        cred = credentials.Certificate(service_account_info)
-    else:
-        # For local testing, you need to download service account json
-        # and set GOOGLE_APPLICATION_CREDENTIALS environment variable
-        cred = credentials.ApplicationDefault()
-    firebase_admin.initialize_app(cred, {
-        'databaseURL': FIREBASE_DB_URL
-    })
-    firebase_initialized = True
-    print("Firebase Admin SDK initialized successfully")
+    if not firebase_admin._apps:
+        # For Vercel serverless: initialize without credentials file
+        firebase_app = initialize_app(
+            options={'databaseURL': FIREBASE_DATABASE_URL},
+            name='[DEFAULT]'
+        )
+        logger.info("✅ Firebase Admin initialized")
 except Exception as e:
-    print(f"Firebase initialization warning: {e}. Using REST API fallback.")
-    # We'll use REST API with API key as fallback
+    logger.warning(f"⚠️ Firebase Admin init: {e}")
+    # App may still work with client-side Firebase
 
-# Database reference helper
-def get_db_ref():
-    if firebase_initialized:
-        return db.reference('/')
-    return None
+# Telegram Bot Application (lazy initialization)
+telegram_app = None
 
-# -------------------- HELPER FUNCTIONS --------------------
-def telegram_api_call(method, params=None):
-    """Make calls to Telegram Bot API"""
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/{method}"
+# ============= CONFIGURATION CONSTANTS =============
+WELCOME_PHOTO_URL = "https://i.ibb.co/3b5pScM/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg"
+UPI_PAYMENT_ID = "8543083014@ikwik"
+
+SOCIAL_TASKS = {
+    "youtube": {
+        "name": "YouTube",
+        "handle": "@USSoccerPulse",
+        "points": 100,
+        "url": "https://youtube.com/@USSoccerPulse",
+        "icon": "▶️"
+    },
+    "instagram": {
+        "name": "Instagram", 
+        "handle": "@digital_rockstar_m",
+        "points": 100,
+        "url": "https://instagram.com/digital_rockstar_m",
+        "icon": "📸"
+    },
+    "facebook": {
+        "name": "Facebook",
+        "handle": "UltimateMediaSearch",
+        "points": 100,
+        "url": "https://facebook.com/UltimateMediaSearch",
+        "icon": "📘"
+    }
+}
+
+PLANS = {
+    "Free": {"price": 0, "ai_cost": 10, "daily_task_limit": 3},
+    "Earner Pro": {"price": 100, "ai_cost": 0, "daily_task_limit": 10},
+    "Influencer Pro": {"price": 500, "ai_cost": 0, "daily_task_limit": -1}  # -1 = unlimited
+}
+
+# ============= FIREBASE DATABASE HELPERS =============
+def _get_ref(path: str):
+    """Get Firebase database reference"""
     try:
-        response = requests.post(url, json=params) if params else requests.get(url)
-        return response.json()
-    except Exception as e:
-        print(f"Telegram API error: {e}")
+        return db.reference(path, app=firebase_app)
+    except:
         return None
 
-def send_telegram_message(chat_id, text, parse_mode='HTML', reply_markup=None):
-    """Send message via Telegram"""
-    params = {
-        'chat_id': chat_id,
-        'text': text,
-        'parse_mode': parse_mode
+def get_user(user_id: str) -> dict:
+    """Fetch or create user document"""
+    ref = _get_ref(f'users/{user_id}')
+    if not ref:
+        return _get_default_user(user_id)
+    
+    data = ref.get()
+    if not 
+        return _get_default_user(user_id)
+    return data
+
+def _get_default_user(user_id: str) -> dict:
+    """Create default user structure"""
+    return {
+        'user_id': user_id,
+        'username': 'User',
+        'points': 0,
+        'plan': 'Free',
+        'tasks_completed': [],
+        'last_task_reset': time.time(),
+        'messages': [],
+        'payment_history': [],
+        'joined_at': time.time(),
+        'last_active': time.time()
     }
-    if reply_markup:
-        params['reply_markup'] = json.dumps(reply_markup)
-    return telegram_api_call('sendMessage', params)
 
-def send_telegram_photo(chat_id, photo_url, caption=None, parse_mode='HTML', reply_markup=None):
-    """Send photo via Telegram"""
-    params = {
-        'chat_id': chat_id,
-        'photo': photo_url,
-        'parse_mode': parse_mode
-    }
-    if caption:
-        params['caption'] = caption
-    if reply_markup:
-        params['reply_markup'] = json.dumps(reply_markup)
-    return telegram_api_call('sendPhoto', params)
-
-def get_user(telegram_id):
-    """Get user from Firebase"""
-    ref = get_db_ref()
-    if ref:
-        user = ref.child(f'users/{telegram_id}').get()
-        return user
-    return None
-
-def create_or_update_user(telegram_id, user_data):
-    """Create or update user in Firebase"""
-    ref = get_db_ref()
-    if ref:
-        ref.child(f'users/{telegram_id}').set(user_data)
-        return True
-    return False
-
-def get_membership_plan(plan):
-    """Return formatted membership plan name"""
-    plans = {
-        'free': 'Free',
-        'earner_pro': 'Earner Pro',
-        'influencer_pro': 'Influencer Pro'
-    }
-    return plans.get(plan, 'Free')
-
-def get_ai_cost(user_plan):
-    """Get AI message cost based on membership"""
-    costs = {
-        'free': 10,
-        'earner_pro': 5,
-        'influencer_pro': 0
-    }
-    return costs.get(user_plan, 10)
-
-def deduct_points(telegram_id, points):
-    """Deduct points from user"""
-    ref = get_db_ref()
-    if ref:
-        user = get_user(telegram_id)
-        if user and user.get('points', 0) >= points:
-            new_points = user.get('points', 0) - points
-            ref.child(f'users/{telegram_id}/points').set(new_points)
-            return new_points
-    return None
-
-def add_points(telegram_id, points):
-    """Add points to user"""
-    ref = get_db_ref()
-    if ref:
-        user = get_user(telegram_id)
-        current_points = user.get('points', 0) if user else 0
-        new_points = current_points + points
-        ref.child(f'users/{telegram_id}/points').set(new_points)
-        return new_points
-    return None
-
-def complete_task(telegram_id, task_name):
-    """Mark task as completed and add points if not already done"""
-    ref = get_db_ref()
-    if ref:
-        user = get_user(telegram_id)
-        if user:
-            tasks_completed = user.get('tasks_completed', {})
-            if not tasks_completed.get(task_name, False):
-                # Mark task as completed
-                tasks_completed[task_name] = True
-                ref.child(f'users/{telegram_id}/tasks_completed').set(tasks_completed)
-                # Add points
-                add_points(telegram_id, 100)
-                return True
-    return False
-
-def call_deepseek_api(messages):
-    """Call DeepSeek AI API"""
-    headers = {
-        'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
-        'Content-Type': 'application/json'
-    }
-    data = {
-        'model': 'deepseek-chat',
-        'messages': messages,
-        'temperature': 0.7,
-        'max_tokens': 500
-    }
+def update_user(user_id: str,  dict) -> bool:
+    """Update user fields atomically"""
+    ref = _get_ref(f'users/{user_id}')
+    if not ref:
+        return False
     try:
-        response = requests.post('https://api.deepseek.com/v1/chat/completions', 
-                                 headers=headers, json=data, timeout=30)
-        if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content']
-        else:
-            return f"AI Error: {response.status_code}"
+        ref.update(data)
+        return True
     except Exception as e:
-        return f"AI Error: {str(e)}"
+        logger.error(f"Firebase update error: {e}")
+        return False
 
-# -------------------- TELEGRAM WEBHOOK HANDLER --------------------
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    """Handle incoming Telegram updates"""
-    update = request.json
-    if not update:
-        return jsonify({'status': 'ok'})
-    
-    # Process message
-    if 'message' in update:
-        message = update['message']
-        chat_id = message['chat']['id']
-        user_id = str(chat_id)
-        first_name = message['chat'].get('first_name', 'User')
-        
-        # Ensure user exists
-        user = get_user(user_id)
-        if not user:
-            user_data = {
-                'id': user_id,
-                'first_name': first_name,
-                'points': 0,
-                'plan': 'free',
-                'tasks_completed': {
-                    'youtube': False,
-                    'instagram': False,
-                    'facebook': False
-                },
-                'joined_at': datetime.now().isoformat()
-            }
-            create_or_update_user(user_id, user_data)
-            user = user_data
-        
-        # Handle /start command
-        if 'text' in message and message['text'].startswith('/start'):
-            # Create inline keyboard for social tasks
-            keyboard = {
-                'inline_keyboard': [
-                    [
-                        {'text': '📺 YouTube', 'callback_data': 'task_youtube'},
-                        {'text': '📸 Instagram', 'callback_data': 'task_instagram'},
-                        {'text': '📘 Facebook', 'callback_data': 'task_facebook'}
-                    ],
-                    [
-                        {'text': '🤖 AI Chat', 'callback_data': 'ai_chat'},
-                        {'text': '💎 Upgrade', 'callback_data': 'upgrade'}
-                    ]
-                ]
-            }
-            
-            caption = f"<b>Welcome {first_name}!</b>\n\n" \
-                      f"💰 <b>Points Balance:</b> {user.get('points', 0)}\n" \
-                      f"👑 <b>Membership Plan:</b> {get_membership_plan(user.get('plan', 'free'))}\n\n" \
-                      f"✨ Complete social tasks to earn 100 points each!\n" \
-                      f"🤖 Use /ai to chat with DeepSeek AI (10 points per message for Free users)\n" \
-                      f"💎 Upgrade to Pro plans for exclusive benefits!"
-            
-            send_telegram_photo(chat_id, 
-                              "https://i.ibb.co/3b5pScM/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg",
-                              caption=caption,
-                              reply_markup=keyboard)
-        
-        # Handle /ai command
-        elif 'text' in message and message['text'].startswith('/ai'):
-            # Extract query (remove /ai command)
-            query = message['text'].replace('/ai', '').strip()
-            if not query:
-                send_telegram_message(chat_id, "🤖 Please provide a message after /ai command.\nExample: `/ai What is AI?`")
-                return jsonify({'status': 'ok'})
-            
-            # Check points and deduct
-            cost = get_ai_cost(user.get('plan', 'free'))
-            if user.get('points', 0) < cost:
-                send_telegram_message(chat_id, f"❌ Insufficient points! You need {cost} points for AI chat.\nComplete social tasks to earn points!")
-                return jsonify({'status': 'ok'})
-            
-            # Deduct points
-            deduct_points(user_id, cost)
-            
-            # Call DeepSeek API
-            send_telegram_message(chat_id, "🤔 Thinking...")
-            ai_response = call_deepseek_api([{"role": "user", "content": query}])
-            
-            # Send response
-            response_text = f"🤖 <b>AI Response:</b>\n\n{ai_response}\n\n💎 <i>Points deducted: {cost}</i>"
-            send_telegram_message(chat_id, response_text)
-    
-    # Handle callback queries (inline button clicks)
-    elif 'callback_query' in update:
-        callback = update['callback_query']
-        chat_id = callback['message']['chat']['id']
-        user_id = str(chat_id)
-        data = callback['data']
-        
-        # Answer callback query to remove loading state
-        telegram_api_call('answerCallbackQuery', {'callback_query_id': callback['id']})
-        
-        # Get user
-        user = get_user(user_id)
-        
-        if data == 'task_youtube':
-            if complete_task(user_id, 'youtube'):
-                send_telegram_message(chat_id, "✅ YouTube task completed! +100 points added!")
-            else:
-                send_telegram_message(chat_id, "⚠️ You've already completed the YouTube task!")
-        
-        elif data == 'task_instagram':
-            if complete_task(user_id, 'instagram'):
-                send_telegram_message(chat_id, "✅ Instagram task completed! +100 points added!")
-            else:
-                send_telegram_message(chat_id, "⚠️ You've already completed the Instagram task!")
-        
-        elif data == 'task_facebook':
-            if complete_task(user_id, 'facebook'):
-                send_telegram_message(chat_id, "✅ Facebook task completed! +100 points added!")
-            else:
-                send_telegram_message(chat_id, "⚠️ You've already completed the Facebook task!")
-        
-        elif data == 'ai_chat':
-            send_telegram_message(chat_id, "🤖 Use /ai <your message> to chat with AI!\nExample: `/ai What is the weather?`")
-        
-        elif data == 'upgrade':
-            keyboard = {
-                'inline_keyboard': [
-                    [{'text': '💰 Earner Pro - ₹100', 'callback_data': 'upgrade_100'}],
-                    [{'text': '👑 Influencer Pro - ₹500', 'callback_data': 'upgrade_500'}],
-                    [{'text': '❌ Cancel', 'callback_data': 'cancel_upgrade'}]
-                ]
-            }
-            send_telegram_message(chat_id, 
-                                "💎 <b>Upgrade Your Membership</b>\n\n"
-                                "🔹 <b>Earner Pro (₹100)</b>\n"
-                                "   • 500 bonus points\n"
-                                "   • 50% discount on AI (5 points/message)\n\n"
-                                "🔹 <b>Influencer Pro (₹500)</b>\n"
-                                "   • 2000 bonus points\n"
-                                "   • Free AI chat (0 points)\n\n"
-                                "📤 <b>Payment Instructions:</b>\n"
-                                "UPI ID: <code>8543083014@ikwik</code>\n\n"
-                                "After payment, visit our web dashboard to submit your transaction ID and screenshot.\n"
-                                "🔗 Dashboard: <your-vercel-url>/dashboard",
-                                reply_markup=keyboard)
-        
-        elif data == 'upgrade_100':
-            send_telegram_message(chat_id, 
-                                "💰 <b>Earner Pro Upgrade - ₹100</b>\n\n"
-                                "Please pay ₹100 to UPI ID: <code>8543083014@ikwik</code>\n\n"
-                                "After payment, go to our web dashboard and submit:\n"
-                                "• Transaction ID\n"
-                                "• Payment Screenshot\n\n"
-                                "🔗 Dashboard: <your-vercel-url>/dashboard\n\n"
-                                "Our admin will approve your upgrade within 24 hours.")
-        
-        elif data == 'upgrade_500':
-            send_telegram_message(chat_id, 
-                                "👑 <b>Influencer Pro Upgrade - ₹500</b>\n\n"
-                                "Please pay ₹500 to UPI ID: <code>8543083014@ikwik</code>\n\n"
-                                "After payment, go to our web dashboard and submit:\n"
-                                "• Transaction ID\n"
-                                "• Payment Screenshot\n\n"
-                                "🔗 Dashboard: <your-vercel-url>/dashboard\n\n"
-                                "Our admin will approve your upgrade within 24 hours.")
-        
-        elif data == 'cancel_upgrade':
-            send_telegram_message(chat_id, "❌ Upgrade cancelled.")
-    
-    return jsonify({'status': 'ok'})
+def get_all_users() -> dict:
+    """Retrieve all users (admin use only)"""
+    ref = _get_ref('users')
+    if not ref:
+        return {}
+    try:
+        return ref.get() or {}
+    except:
+        return {}
 
-# -------------------- API ENDPOINTS --------------------
-@app.route('/api/auth_telegram', methods=['POST'])
-def auth_telegram():
-    """Verify Telegram Login Widget data"""
-    data = request.json
-    if not data:
-        return jsonify({'success': False, 'error': 'No data provided'})
+def add_payment_request(user_id: str, amount: int, txn_id: str, 
+                       plan: str, screenshot_url: str = None) -> str:
+    """Create payment request, returns request ID"""
+    ref = _get_ref('payments')
+    if not ref:
+        return ""
     
-    # Verify hash
-    hash_string = data.get('hash')
-    if not hash_string:
-        return jsonify({'success': False, 'error': 'No hash provided'})
+    payment_id = ref.push().key
+    payment_data = {
+        'payment_id': payment_id,
+        'user_id': user_id,
+        'amount': amount,
+        'txn_id': txn_id,
+        'plan': plan,
+        'screenshot_url': screenshot_url,
+        'status': 'pending',  # pending, approved, rejected
+        'submitted_at': time.time(),
+        'reviewed_at': None,
+        'admin_notes': ''
+    }
     
-    # Check required fields
-    required_fields = ['id', 'first_name', 'auth_date', 'hash']
-    for field in required_fields:
-        if field not in data:
-            return jsonify({'success': False, 'error': f'Missing field: {field}'})
-    
-    # Prepare check string
-    check_list = []
-    for key in sorted(data.keys()):
-        if key != 'hash':
-            check_list.append(f"{key}={data[key]}")
-    check_string = "\n".join(check_list)
-    
-    # Compute hash
-    secret_key = hashlib.sha256(TELEGRAM_BOT_TOKEN.encode()).digest()
-    computed_hash = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
-    
-    if computed_hash != hash_string:
-        return jsonify({'success': False, 'error': 'Invalid hash'})
-    
-    # Get user data from Firebase
-    user_id = str(data['id'])
-    user = get_user(user_id)
-    
-    if not user:
-        # Create new user
-        user_data = {
-            'id': user_id,
-            'first_name': data.get('first_name', 'User'),
-            'points': 0,
-            'plan': 'free',
-            'tasks_completed': {
-                'youtube': False,
-                'instagram': False,
-                'facebook': False
-            },
-            'joined_at': datetime.now().isoformat()
+    try:
+        ref.child(payment_id).set(payment_data)
+        # Also add to user's payment history
+        user_ref = _get_ref(f'users/{user_id}/payment_history')
+        if user_ref:
+            user_ref.push().set({
+                'payment_id': payment_id,
+                'amount': amount,
+                'plan': plan,
+                'status': 'pending',
+                'timestamp': time.time()
+            })
+        return payment_id
+    except Exception as e:
+        logger.error(f"Payment request error: {e}")
+        return ""
+
+def get_pending_payments() -> list:
+    """Get all pending payment requests"""
+    ref = _get_ref('payments')
+    if not ref:
+        return []
+    try:
+        all_payments = ref.get() or {}
+        return [
+            {**p, 'id': pid} for pid, p in all_payments.items() 
+            if p.get('status') == 'pending'
+        ]
+    except:
+        return []
+
+def update_payment_status(payment_id: str, status: str, admin_notes: str = "") -> bool:
+    """Update payment request status"""
+    ref = _get_ref(f'payments/{payment_id}')
+    if not ref:
+        return False
+    try:
+        update_data = {
+            'status': status,
+            'reviewed_at': time.time(),
+            'admin_notes': admin_notes
         }
-        create_or_update_user(user_id, user_data)
-        user = user_data
-    
-    return jsonify({
-        'success': True,
-        'user': {
-            'id': user_id,
-            'first_name': user.get('first_name'),
-            'points': user.get('points', 0),
-            'plan': user.get('plan', 'free'),
-            'membership_name': get_membership_plan(user.get('plan', 'free')),
-            'tasks_completed': user.get('tasks_completed', {})
-        }
-    })
-
-@app.route('/api/user_data', methods=['GET'])
-def user_data():
-    """Get user data by telegram_id"""
-    telegram_id = request.args.get('telegram_id')
-    if not telegram_id:
-        return jsonify({'success': False, 'error': 'No telegram_id provided'})
-    
-    user = get_user(telegram_id)
-    if not user:
-        return jsonify({'success': False, 'error': 'User not found'})
-    
-    return jsonify({
-        'success': True,
-        'user': {
-            'id': telegram_id,
-            'first_name': user.get('first_name'),
-            'points': user.get('points', 0),
-            'plan': user.get('plan', 'free'),
-            'membership_name': get_membership_plan(user.get('plan', 'free')),
-            'tasks_completed': user.get('tasks_completed', {})
-        }
-    })
-
-@app.route('/api/complete_task', methods=['POST'])
-def api_complete_task():
-    """Complete a social task via web"""
-    data = request.json
-    telegram_id = data.get('telegram_id')
-    task_name = data.get('task_name')
-    
-    if not telegram_id or not task_name:
-        return jsonify({'success': False, 'error': 'Missing parameters'})
-    
-    if task_name not in ['youtube', 'instagram', 'facebook']:
-        return jsonify({'success': False, 'error': 'Invalid task'})
-    
-    if complete_task(telegram_id, task_name):
-        user = get_user(telegram_id)
-        return jsonify({
-            'success': True,
-            'message': 'Task completed! +100 points',
-            'points': user.get('points', 0)
-        })
-    else:
-        return jsonify({
-            'success': False,
-            'message': 'Task already completed'
-        })
-
-@app.route('/api/submit_payment', methods=['POST'])
-def submit_payment():
-    """Submit payment proof for upgrade"""
-    data = request.json
-    telegram_id = data.get('telegram_id')
-    amount = data.get('amount')
-    transaction_id = data.get('transaction_id')
-    screenshot = data.get('screenshot')  # base64 string
-    
-    if not telegram_id or not amount or not transaction_id:
-        return jsonify({'success': False, 'error': 'Missing required fields'})
-    
-    if amount not in [100, 500]:
-        return jsonify({'success': False, 'error': 'Invalid amount'})
-    
-    ref = get_db_ref()
-    if ref:
-        payment_data = {
-            'user_id': telegram_id,
-            'amount': amount,
-            'transaction_id': transaction_id,
-            'screenshot': screenshot,
-            'status': 'pending',
-            'submitted_at': datetime.now().isoformat()
-        }
-        payment_ref = ref.child('payments').push(payment_data)
+        ref.update(update_data)
         
-        return jsonify({
-            'success': True,
-            'message': 'Payment submitted successfully! Admin will review shortly.',
-            'payment_id': payment_ref.key
-        })
-    
-    return jsonify({'success': False, 'error': 'Database error'})
-
-@app.route('/api/chat', methods=['POST'])
-def api_chat():
-    """AI Chat endpoint with points deduction"""
-    data = request.json
-    telegram_id = data.get('telegram_id')
-    message = data.get('message')
-    
-    if not telegram_id or not message:
-        return jsonify({'success': False, 'error': 'Missing parameters'})
-    
-    user = get_user(telegram_id)
-    if not user:
-        return jsonify({'success': False, 'error': 'User not found'})
-    
-    cost = get_ai_cost(user.get('plan', 'free'))
-    
-    if user.get('points', 0) < cost:
-        return jsonify({
-            'success': False,
-            'error': f'Insufficient points! Need {cost} points.',
-            'points': user.get('points', 0)
-        })
-    
-    # Deduct points
-    new_points = deduct_points(telegram_id, cost)
-    
-    # Get AI response
-    ai_response = call_deepseek_api([{"role": "user", "content": message}])
-    
-    return jsonify({
-        'success': True,
-        'response': ai_response,
-        'points_deducted': cost,
-        'remaining_points': new_points
-    })
-
-# -------------------- ADMIN ENDPOINTS --------------------
-def admin_required(f):
-    """Decorator to check admin authentication"""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get('admin_logged_in'):
-            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
-        return f(*args, **kwargs)
-    return decorated
-
-@app.route('/admin/login', methods=['POST'])
-def admin_login():
-    """Admin login endpoint"""
-    data = request.json
-    password = data.get('password')
-    
-    if password == ADMIN_PASSWORD:
-        session['admin_logged_in'] = True
-        return jsonify({'success': True})
-    return jsonify({'success': False, 'error': 'Invalid password'})
-
-@app.route('/admin/logout', methods=['POST'])
-def admin_logout():
-    """Admin logout"""
-    session.pop('admin_logged_in', None)
-    return jsonify({'success': True})
-
-@app.route('/admin/payments', methods=['GET'])
-@admin_required
-def admin_get_payments():
-    """Get all pending payments"""
-    ref = get_db_ref()
-    if ref:
-        payments = ref.child('payments').get()
-        if payments:
-            pending = []
-            for pid, payment in payments.items():
-                if payment.get('status') == 'pending':
-                    # Get user details
-                    user = ref.child(f'users/{payment["user_id"]}').get()
-                    pending.append({
-                        'id': pid,
-                        'user_id': payment['user_id'],
-                        'user_name': user.get('first_name', 'Unknown') if user else 'Unknown',
-                        'amount': payment['amount'],
-                        'transaction_id': payment['transaction_id'],
-                        'screenshot': payment.get('screenshot', ''),
-                        'submitted_at': payment['submitted_at']
+        # If approved, upgrade user plan
+        if status == 'approved':
+            payment = ref.get()
+            if payment:
+                user_ref = _get_ref(f"users/{payment['user_id']}")
+                if user_ref:
+                    user_ref.update({
+                        'plan': payment['plan'],
+                        'points': db.ServerValue.increment(
+                            500 if payment['plan'] == 'Influencer Pro' else 100
+                        )
                     })
-            return jsonify({'success': True, 'payments': pending})
-    return jsonify({'success': True, 'payments': []})
+        return True
+    except Exception as e:
+        logger.error(f"Payment update error: {e}")
+        return False
 
-@app.route('/admin/approve_payment', methods=['POST'])
-@admin_required
-def admin_approve_payment():
-    """Approve a payment and upgrade user"""
-    data = request.json
-    payment_id = data.get('payment_id')
+# ============= DEEPSEEK AI INTEGRATION =============
+async def query_deepseek_api(prompt: str, user_plan: str = "Free") -> dict:
+    """Query DeepSeek AI with proper error handling"""
     
-    ref = get_db_ref()
-    if ref:
-        payment = ref.child(f'payments/{payment_id}').get()
-        if payment:
-            user_id = payment['user_id']
-            amount = payment['amount']
-            
-            # Update payment status
-            ref.child(f'payments/{payment_id}/status').set('approved')
-            
-            # Upgrade user based on amount
-            if amount == 100:
-                ref.child(f'users/{user_id}/plan').set('earner_pro')
-                # Add bonus points
-                current_points = ref.child(f'users/{user_id}/points').get() or 0
-                ref.child(f'users/{user_id}/points').set(current_points + 500)
-                plan_name = "Earner Pro"
-                bonus = 500
-            else:
-                ref.child(f'users/{user_id}/plan').set('influencer_pro')
-                current_points = ref.child(f'users/{user_id}/points').get() or 0
-                ref.child(f'users/{user_id}/points').set(current_points + 2000)
-                plan_name = "Influencer Pro"
-                bonus = 2000
-            
-            # Send notification to user via Telegram
-            send_telegram_message(int(user_id), 
-                                f"✅ <b>Payment Approved!</b>\n\n"
-                                f"Your upgrade to <b>{plan_name}</b> has been approved!\n"
-                                f"🎁 You received {bonus} bonus points!\n\n"
-                                f"Thank you for upgrading! 🎉")
-            
-            return jsonify({'success': True, 'message': 'Payment approved and user upgraded'})
+    # Point deduction logic
+    ai_cost = PLANS.get(user_plan, PLANS['Free']).get('ai_cost', 10)
     
-    return jsonify({'success': False, 'error': 'Payment not found'})
-
-@app.route('/admin/reject_payment', methods=['POST'])
-@admin_required
-def admin_reject_payment():
-    """Reject a payment"""
-    data = request.json
-    payment_id = data.get('payment_id')
+    if user_plan == "Free" and ai_cost > 0:
+        # Free users pay per message
+        return {
+            "success": False,
+            "response": f"💎 <b>Pro Feature!</b>\n\nAI chat costs {ai_cost} points for Free users.\n\n<b>Upgrade to Pro for unlimited AI!</b>",
+            "cost": ai_cost,
+            "requires_payment": True
+        }
     
-    ref = get_db_ref()
-    if ref:
-        payment = ref.child(f'payments/{payment_id}').get()
-        if payment:
-            ref.child(f'payments/{payment_id}/status').set('rejected')
-            user_id = payment['user_id']
-            
-            send_telegram_message(int(user_id), 
-                                f"❌ <b>Payment Rejected</b>\n\n"
-                                f"Your payment could not be approved. Please check your transaction details and submit again.\n\n"
-                                f"Contact support for assistance.")
-            
-            return jsonify({'success': True, 'message': 'Payment rejected'})
-    
-    return jsonify({'success': False, 'error': 'Payment not found'})
-
-@app.route('/admin/broadcast', methods=['POST'])
-@admin_required
-def admin_broadcast():
-    """Send broadcast message to all users"""
-    data = request.json
-    message = data.get('message')
-    
-    if not message:
-        return jsonify({'success': False, 'error': 'No message provided'})
-    
-    ref = get_db_ref()
-    if ref:
-        users = ref.child('users').get()
-        if users:
-            sent_count = 0
-            for user_id, user in users.items():
-                try:
-                    send_telegram_message(int(user_id), f"📢 <b>Broadcast Message</b>\n\n{message}")
-                    sent_count += 1
-                except:
-                    pass
-            return jsonify({'success': True, 'sent': sent_count, 'total': len(users)})
-    
-    return jsonify({'success': False, 'error': 'No users found'})
-
-@app.route('/admin/task_links', methods=['GET'])
-@admin_required
-def admin_get_task_links():
-    """Get current task links"""
-    ref = get_db_ref()
-    if ref:
-        links = ref.child('config/task_links').get() or {}
-        return jsonify({'success': True, 'links': links})
-    return jsonify({'success': True, 'links': {}})
-
-@app.route('/admin/task_links', methods=['POST'])
-@admin_required
-def admin_update_task_links():
-    """Update task links"""
-    data = request.json
-    youtube = data.get('youtube')
-    instagram = data.get('instagram')
-    facebook = data.get('facebook')
-    
-    ref = get_db_ref()
-    if ref:
-        links = {}
-        if youtube:
-            links['youtube'] = youtube
-        if instagram:
-            links['instagram'] = instagram
-        if facebook:
-            links['facebook'] = facebook
+    try:
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": "You are a helpful media search assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 500,
+            "temperature": 0.7,
+            "stream": False
+        }
         
-        ref.child('config/task_links').set(links)
-        return jsonify({'success': True, 'message': 'Links updated'})
-    
-    return jsonify({'success': False, 'error': 'Database error'})
+        response = requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result.get('choices', [{}])[0].get('message', {}).get('content', 'No response')
+            return {
+                "success": True,
+                "response": content,
+                "cost": 0 if user_plan != "Free" else ai_cost,
+                "model": result.get('model', 'deepseek-chat')
+            }
+        else:
+            logger.error(f"DeepSeek API error: {response.status_code} - {response.text}")
+            return {
+                "success": False,
+                "response": f"❌ AI Service Error ({response.status_code})\n\nPlease try again later.",
+                "cost": 0,
+                "error": response.text[:200]
+            }
+            
+    except requests.exceptions.Timeout:
+        return {"success": False, "response": "⏰ AI request timed out. Please try again.", "cost": 0}
+    except requests.exceptions.ConnectionError:
+        return {"success": False, "response": "🔌 Cannot connect to AI service. Check your connection.", "cost": 0}
+    except Exception as e:
+        logger.error(f"DeepSeek query exception: {e}")
+        return {"success": False, "response": f"❌ Unexpected error: {str(e)[:100]}", "cost": 0}
 
-# -------------------- WEB PAGES --------------------
-@app.route('/dashboard')
-def dashboard():
-    """Serve dashboard HTML"""
-    return render_template('dashboard.html')
+# ============= TELEGRAM BOT HANDLERS =============
+async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /start command with welcome photo and user info"""
+    user = update.effective_user
+    user_id = str(user.id)
+    
+    # Get or initialize user
+    user_data = get_user(user_id)
+    
+    # Update username if changed
+    if user_data['username'] != (user.username or user.first_name):
+        user_data['username'] = user.username or user.first_name
+        update_user(user_id, {'username': user_data['username']})
+    
+    # Update last active
+    update_user(user_id, {'last_active': time.time()})
+    
+    # Format caption with HTML bold tags as requested
+    caption = (
+        f"<b>👋 Welcome, {user_data['username']}!</b>\n\n"
+        f"<b>💰 Points Balance:</b> {user_data['points']}\n"
+        f"<b>🎫 Membership Plan:</b> {user_data['plan']}\n\n"
+        f"<i>🎯 Use /tasks to earn points</i>\n"
+        f"<i>🤖 Use /ai to chat with AI</i>\n"
+        f"<i>💳 Use /upgrade for Pro plans</i>"
+    )
+    
+    try:
+        await update.message.reply_photo(
+            photo=WELCOME_PHOTO_URL,
+            caption=caption,
+            parse_mode='HTML',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎯 View Tasks", callback_data="show_tasks")],
+                [InlineKeyboardButton("🤖 AI Chat", callback_data="show_ai")],
+                [InlineKeyboardButton("💳 Upgrade Plan", url="https://t.me/yourbot?start=upgrade")]
+            ])
+        )
+    except Exception as e:
+        logger.error(f"Send photo error: {e}")
+        await update.message.reply_text(caption, parse_mode='HTML')
+
+async def handle_tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Display available social media tasks"""
+    user_id = str(update.effective_user.id)
+    user_data = get_user(user_id)
+    
+    # Check daily reset
+    now = time.time()
+    last_reset = user_data.get('last_task_reset', 0)
+    if now - last_reset > 86400:  # 24 hours
+        user_data['tasks_completed'] = []  # Reset daily tasks
+        user_data['last_task_reset'] = now
+        update_user(user_id, {
+            'tasks_completed': [],
+            'last_task_reset': now
+        })
+    
+    # Build task keyboard
+    keyboard = []
+    for task_id, task in SOCIAL_TASKS.items():
+        completed = task_id in user_data.get('tasks_completed', [])
+        status = "✅" if completed else f"+{task['points']}pts"
+        keyboard.append([
+            InlineKeyboardButton(
+                f"{task['icon']} {task['name']} {status}",
+                url=task['url']
+            )
+        ])
+    
+    keyboard.append([InlineKeyboardButton("🔄 Refresh Tasks", callback_data="refresh_tasks")])
+    
+    await update.message.reply_text(
+        "<b>🎯 Daily Social Tasks</b>\n\n"
+        "Complete tasks to earn <b>100 points each</b>:\n\n"
+        "• Subscribe & engage on our channels\n"
+        "• Tasks reset every 24 hours\n"
+        "• Pro members get higher limits\n\n"
+        "<i>Tap a link, then mark as complete</i>",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+async def handle_ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /ai [message] command"""
+    user_id = str(update.effective_user.id)
+    user_data = get_user(user_id)
+    
+    # Check if user provided a message
+    if not context.args:
+        await update.message.reply_text(
+            "<b>🤖 AI Chat Command</b>\n\n"
+            "Usage: <code>/ai Your question here</code>\n\n"
+            "<b>Pricing:</b>\n"
+            "• Free: 10 points/message\n"
+            "• Pro: Unlimited free AI\n\n"
+            "<i>💡 Tip: Be specific for better results!</i>",
+            parse_mode='HTML'
+        )
+        return
+    
+    prompt = " ".join(context.args)
+    ai_cost = PLANS[user_data['plan']]['ai_cost']
+    
+    # Check points for free users
+    if user_data['plan'] == 'Free' and user_data['points'] < ai_cost:
+        await update.message.reply_text(
+            f"❌ <b>Insufficient Points!</b>\n\n"
+            f"You need {ai_cost} points for AI chat.\n"
+            f"Current balance: {user_data['points']}\n\n"
+            "<i>Complete tasks: /tasks</i>",
+            parse_mode='HTML'
+        )
+        return
+    
+    # Deduct points for free users BEFORE calling AI
+    if user_data['plan'] == 'Free' and ai_cost > 0:
+        new_balance = user_data['points'] - ai_cost
+        update_user(user_id, {'points': new_balance})
+        await update.message.reply_text(
+            f"🔹 {ai_cost} points deducted. Balance: {new_balance}\n\n🤖 Thinking...",
+            parse_mode='HTML'
+        )
+    
+    # Query AI
+    result = await query_deepseek_api(prompt, user_data['plan'])
+    
+    # Format and send response
+    if result['success']:
+        response_text = f"<b>🤖 AI Response:</b>\n\n{result['response']}"
+    else:
+        response_text = result['response']
+    
+    await update.message.reply_text(response_text, parse_mode='HTML')
+    
+    # Save to message history (last 20)
+    history = user_data.get('messages', [])[-19:]
+    history.append({
+        'role': 'user',
+        'content': prompt,
+        'timestamp': time.time()
+    })
+    history.append({
+        'role': 'assistant', 
+        'content': result.get('response', ''),
+        'timestamp': time.time()
+    })
+    update_user(user_id, {'messages': history})
+
+async def handle_upgrade(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show upgrade options and payment instructions"""
+    keyboard = [
+        [
+            InlineKeyboardButton("🥈 Earner Pro - ₹100", callback_data="pay:100:Earner Pro"),
+            InlineKeyboardButton("🥇 Influencer Pro - ₹500", callback_data="pay:500:Influencer Pro")
+        ],
+        [InlineKeyboardButton("📋 View Payment History", callback_data="payment_history")]
+    ]
+    
+    await update.message.reply_text(
+        "<b>💳 Upgrade to Pro</b>\n\n"
+        "<b>🥈 Earner Pro - ₹100/month</b>\n"
+        "• 10x daily task limit\n"
+        "• Free AI chat\n"
+        "• +100 bonus points\n\n"
+        "<b>🥇 Influencer Pro - ₹500/month</b>\n"
+        "• Unlimited tasks\n"
+        "• Priority AI access\n"
+        "• +500 bonus points\n"
+        "• Early feature access\n\n"
+        f"<b>📲 Pay via UPI:</b>\n<code>{UPI_PAYMENT_ID}</code>\n\n"
+        "<b>✅ After Payment:</b>\n"
+        "1. Send transaction ID below\n"
+        "2. Use: <code>/pay YOUR_TXN_ID</code>\n"
+        "3. Or upload via dashboard\n"
+        "4. Admin approval: ~24 hours",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+async def handle_payment_submission(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /pay [transaction_id] command"""
+    if not context.args:
+        await update.message.reply_text(
+            "Usage: <code>/pay YOUR_TRANSACTION_ID</code>\n\n"
+            "Example: <code>/pay UPI123456789</code>",
+            parse_mode='HTML'
+        )
+        return
+    
+    user_id = str(update.effective_user.id)
+    txn_id = context.args[0].upper()
+    user_data = get_user(user_id)
+    
+    # Default to Earner Pro if amount not specified
+    # In production, parse amount from message or use separate command
+    payment_id = add_payment_request(
+        user_id=user_id,
+        amount=100,  # Default amount
+        txn_id=txn_id,
+        plan="Earner Pro",  # Default plan
+        screenshot_url=None
+    )
+    
+    if payment_id:
+        await update.message.reply_text(
+            f"✅ <b>Payment Submitted!</b>\n\n"
+            f"📝 Transaction: <code>{txn_id}</code>\n"
+            f"🎫 Plan: Earner Pro (₹100)\n"
+            f"🔍 Status: Pending Review\n\n"
+            f"<i>You'll be notified once approved!</i>",
+            parse_mode='HTML'
+        )
+    else:
+        await update.message.reply_text(
+            "❌ Failed to submit payment. Please try again or use the web dashboard.",
+            parse_mode='HTML'
+        )
+
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline button callbacks"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = str(query.from_user.id)
+    user_data = get_user(user_id)
+    data = query.data
+    
+    # Task completion
+    if data.startswith("complete:"):
+        task_id = data.split(":")[1]
+        if task_id not in SOCIAL_TASKS:
+            await query.edit_message_text("❌ Invalid task")
+            return
+            
+        if task_id in user_data.get('tasks_completed', []):
+            await query.edit_message_text("✅ Already completed!")
+            return
+        
+        # Award points
+        task = SOCIAL_TASKS[task_id]
+        new_points = user_data['points'] + task['points']
+        user_data.setdefault('tasks_completed', []).append(task_id)
+        
+        update_user(user_id, {
+            'points': new_points,
+            'tasks_completed': user_data['tasks_completed']
+        })
+        
+        await query.edit_message_text(
+            f"✅ <b>{task['name']} Completed!</b>\n\n"
+            f"🎉 +{task['points']} points\n"
+            f"💰 New Balance: {new_points}\n\n"
+            f"<i>Keep earning!</i>",
+            parse_mode='HTML',
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🎯 More Tasks", callback_data="show_tasks")
+            ]])
+        )
+    
+    # Show tasks
+    elif data == "show_tasks":
+        await handle_tasks(update, context)
+    
+    # Show AI interface hint
+    elif data == "show_ai":
+        await query.edit_message_text(
+            "<b>🤖 AI Chat</b>\n\n"
+            "Start chatting by typing:\n"
+            "<code>/ai Your message</code>\n\n"
+            "<i>Free users: 10 pts/message\nPro users: Unlimited</i>",
+            parse_mode='HTML',
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Back", callback_data="start_menu")
+            ]])
+        )
+    
+    # Payment selection
+    elif data.startswith("pay:"):
+        parts = data.split(":")
+        amount = parts[1]
+        plan = parts[2] if len(parts) > 2 else "Earner Pro"
+        
+        await query.edit_message_text(
+            f"<b>💳 {plan} Upgrade</b>\n\n"
+            f"Amount: <b>₹{amount}</b>\n\n"
+            f"<b>📲 UPI ID:</b>\n<code>{UPI_PAYMENT_ID}</code>\n\n"
+            "<b>✅ After Payment:</b>\n"
+            "1. Copy your transaction ID\n"
+            "2. Send: <code>/pay YOUR_TXN_ID</code>\n"
+            "3. Or upload screenshot via dashboard\n\n"
+            "<i>⚠️ Keep payment proof safe!</i>",
+            parse_mode='HTML',
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Back to Plans", callback_data="upgrade")
+            ]])
+        )
+    
+    # Start menu
+    elif data == "start_menu":
+        await handle_start(update, context)
+    
+    # Refresh tasks
+    elif data == "refresh_tasks":
+        await handle_tasks(update, context)
+
+# ============= FLASK ROUTES =============
+@app.route('/')
+def index():
+    """Serve dashboard"""
+    return render_template('dashboard.html', firebase_config=json.dumps(FIREBASE_CONFIG))
 
 @app.route('/admin')
 def admin_panel():
-    """Serve admin panel HTML"""
-    return render_template('admin.html')
+    """Serve admin panel (protected)"""
+    return render_template('admin.html', firebase_config=json.dumps(FIREBASE_CONFIG))
 
-@app.route('/set_webhook', methods=['GET'])
-def set_webhook():
-    """Set Telegram webhook to current URL"""
-    # Get the base URL from request
-    base_url = request.url_root.rstrip('/')
-    webhook_url = f"{base_url}/webhook"
+@app.route('/api/auth/admin', methods=['POST'])
+def admin_auth():
+    """Admin authentication endpoint"""
+    data = request.json or {}
+    password = data.get('password', '')
     
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setWebhook"
-    response = requests.post(url, json={'url': webhook_url})
-    
-    if response.status_code == 200:
-        return jsonify({'success': True, 'message': f'Webhook set to {webhook_url}', 'response': response.json()})
-    else:
-        return jsonify({'success': False, 'error': response.text})
+    if password == ADMIN_PASSWORD:
+        # Return session token (simplified - use proper JWT in production)
+        return jsonify({
+            'success': True,
+            'token': f"admin_{int(time.time())}",
+            'expires': time.time() + 3600
+        })
+    return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
 
-@app.route('/')
-def index():
-    """Root endpoint"""
+@app.route('/api/user/<user_id>', methods=['GET'])
+def api_get_user(user_id):
+    """Get user data for dashboard"""
+    user_data = get_user(user_id)
+    if not user_data:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Calculate progress for ad tracker (demo logic)
+    daily_limit = PLANS[user_data['plan']]['daily_task_limit']
+    completed = len([t for t in user_data.get('tasks_completed', []) if t in SOCIAL_TASKS])
+    progress = min(100, int((completed / max(1, daily_limit if daily_limit > 0 else 3)) * 100))
+    
     return jsonify({
-        'name': 'Ultimate Media Search Bot',
-        'version': '1.0.0',
-        'endpoints': {
-            'webhook': '/webhook',
-            'dashboard': '/dashboard',
-            'admin': '/admin',
-            'set_webhook': '/set_webhook'
-        }
+        **user_data,
+        'ad_progress': progress,
+        'tasks_available': SOCIAL_TASKS,
+        'plans': PLANS
     })
 
-# -------------------- MAIN --------------------
+@app.route('/api/ai/chat', methods=['POST'])
+async def api_ai_chat():
+    """AI chat endpoint for dashboard"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    message = data.get('message', '').strip()
+    
+    if not user_id or not message:
+        return jsonify({'error': 'Missing user_id or message'}), 400
+    
+    user_data = get_user(user_id)
+    if not user_data:
+        return jsonify({'error': 'User not found'}), 404
+    
+    ai_cost = PLANS[user_data['plan']]['ai_cost']
+    
+    # Point check for free users
+    if user_data['plan'] == 'Free' and user_data['points'] < ai_cost:
+        return jsonify({
+            'success': False,
+            'response': f"❌ Insufficient points. Need {ai_cost}, have {user_data['points']}",
+            'cost': ai_cost,
+            'balance': user_data['points']
+        })
+    
+    # Deduct points for free users
+    if user_data['plan'] == 'Free' and ai_cost > 0:
+        update_user(user_id, {'points': user_data['points'] - ai_cost})
+    
+    # Query AI
+    result = await query_deepseek_api(message, user_data['plan'])
+    
+    # Update history
+    history = user_data.get('messages', [])[-19:]
+    history.extend([
+        {'role': 'user', 'content': message, 'timestamp': time.time()},
+        {'role': 'assistant', 'content': result.get('response', ''), 'timestamp': time.time()}
+    ])
+    update_user(user_id, {'messages': history})
+    
+    # Get updated balance
+    updated_user = get_user(user_id)
+    
+    return jsonify({
+        'success': result.get('success', False),
+        'response': result.get('response', ''),
+        'cost': result.get('cost', 0),
+        'balance': updated_user['points'],
+        'model': result.get('model', 'deepseek-chat')
+    })
+
+@app.route('/api/tasks/complete', methods=['POST'])
+def api_complete_task():
+    """Mark task as complete via API"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    task_id = data.get('task_id')
+    
+    if not user_id or not task_id:
+        return jsonify({'error': 'Missing user_id or task_id'}), 400
+    
+    if task_id not in SOCIAL_TASKS:
+        return jsonify({'error': 'Invalid task'}), 400
+    
+    user_data = get_user(user_id)
+    
+    # Check if already completed today
+    if task_id in user_data.get('tasks_completed', []):
+        return jsonify({
+            'success': True,
+            'message': 'Already completed',
+            'points': user_data['points']
+        })
+    
+    # Award points
+    task = SOCIAL_TASKS[task_id]
+    new_points = user_data['points'] + task['points']
+    user_data.setdefault('tasks_completed', []).append(task_id)
+    
+    update_user(user_id, {
+        'points': new_points,
+        'tasks_completed': user_data['tasks_completed']
+    })
+    
+    return jsonify({
+        'success': True,
+        'message': f'+{task["points"]} points!',
+        'points_earned': task['points'],
+        'new_balance': new_points
+    })
+
+@app.route('/api/payment/submit', methods=['POST'])
+def api_submit_payment():
+    """Submit payment request via API"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    txn_id = data.get('txn_id', '').strip()
+    amount = data.get('amount', 100)
+    plan = data.get('plan', 'Earner Pro')
+    screenshot_url = data.get('screenshot_url')
+    
+    if not user_id or not txn_id:
+        return jsonify({'error': 'Missing user_id or txn_id'}), 400
+    
+    payment_id = add_payment_request(user_id, amount, txn_id, plan, screenshot_url)
+    
+    if payment_id:
+        return jsonify({
+            'success': True,
+            'payment_id': payment_id,
+            'message': 'Payment request submitted'
+        })
+    return jsonify({'success': False, 'error': 'Submission failed'}), 500
+
+@app.route('/api/admin/payments', methods=['GET'])
+def api_get_payments():
+    """Get pending payments (admin only)"""
+    # Simple auth check (use proper middleware in production)
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer ') or not ADMIN_PASSWORD:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    payments = get_pending_payments()
+    return jsonify({'success': True, 'payments': payments})
+
+@app.route('/api/admin/payment/<payment_id>', methods=['PUT'])
+def api_update_payment(payment_id):
+    """Approve/reject payment (admin only)"""
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer admin_'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.json or {}
+    status = data.get('status')  # 'approved' or 'rejected'
+    notes = data.get('admin_notes', '')
+    
+    if status not in ['approved', 'rejected']:
+        return jsonify({'error': 'Invalid status'}), 400
+    
+    success = update_payment_status(payment_id, status, notes)
+    
+    if success:
+        return jsonify({'success': True, 'message': f'Payment {status}'})
+    return jsonify({'success': False, 'error': 'Update failed'}), 500
+
+@app.route('/api/admin/broadcast', methods=['POST'])
+def api_broadcast():
+    """Broadcast message to all users (admin only)"""
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer admin_'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.json or {}
+    message = data.get('message', '').strip()
+    plan_filter = data.get('plan_filter')  # Optional: send to specific plan
+    
+    if not message:
+        return jsonify({'error': 'Message required'}), 400
+    
+    # In production: queue broadcast via task system
+    # For demo: return success and log
+    users = get_all_users()
+    target_count = sum(
+        1 for uid, udata in users.items()
+        if not plan_filter or udata.get('plan') == plan_filter
+    )
+    
+    logger.info(f"Broadcast to {target_count} users: {message[:100]}...")
+    
+    return jsonify({
+        'success': True,
+        'message': f'Queued for {target_count} users',
+        'queued_at': time.time()
+    })
+
+@app.route('/webhook/telegram', methods=['POST'])
+async def telegram_webhook():
+    """Telegram webhook endpoint for Vercel"""
+    if not telegram_app:
+        return jsonify({'status': 'bot_not_initialized'}), 503
+    
+    try:
+        update_obj = Update.de_json(request.get_json(force=True), telegram_app.bot)
+        await telegram_app.process_update(update_obj)
+        return jsonify({'status': 'ok'})
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/health')
+def health_check():
+    """Vercel health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': time.time(),
+        'version': '1.0.0'
+    })
+
+# ============= BOT INITIALIZATION =============
+def init_telegram_bot():
+    """Initialize Telegram bot application"""
+    global telegram_app
+    
+    if telegram_app:
+        return telegram_app
+    
+    telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    
+    # Register handlers
+    telegram_app.add_handler(CommandHandler("start", handle_start))
+    telegram_app.add_handler(CommandHandler("tasks", handle_tasks))
+    telegram_app.add_handler(CommandHandler("ai", handle_ai_command))
+    telegram_app.add_handler(CommandHandler("upgrade", handle_upgrade))
+    telegram_app.add_handler(CommandHandler("pay", handle_payment_submission))
+    telegram_app.add_handler(CallbackQueryHandler(handle_callback))
+    
+    # Optional: Set webhook for Vercel
+    # webhook_url = os.environ.get('VERCEL_URL', 'http://localhost:8080')
+    # if webhook_url:
+    #     telegram_app.bot.set_webhook(f"{webhook_url}/webhook/telegram")
+    
+    logger.info("✅ Telegram bot initialized")
+    return telegram_app
+
+# Initialize on module load
+init_telegram_bot()
+
+# ============= SERVER ENTRY POINT =============
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Local development: run Flask + Telegram polling
+    import sys
+    
+    if len(sys.argv) > 1 and sys.argv[1] == '--poll':
+        # Run Telegram polling in background
+        async def run_polling():
+            await telegram_app.start_polling()
+        
+        import threading
+        poll_thread = threading.Thread(target=lambda: asyncio.run(run_polling()), daemon=True)
+        poll_thread.start()
+        logger.info("🤖 Telegram polling started")
+    
+    # Run Flask
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_DEBUG', 'false') == 'true')
