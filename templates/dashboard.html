@@ -3,376 +3,294 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#f59e0b">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>💰 Ultimate Media Search - Ad Earning Dashboard</title>
+    <title>Ultimate Media Search | Dashboard</title>
     
-    <!-- Firebase SDK -->
+    <!-- Firebase SDK (Compat for simplicity) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    
-    <!-- Telegram WebApp -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
         :root {
-            --gold-light: #fbbf24;
-            --gold: #f59e0b;
-            --gold-dark: #d97706;
-            --brown-light: #92400e;
-            --brown: #78350f;
-            --brown-dark: #451a03;
-            --cream: #fef3c7;
-            --cream-light: #fffbeb;
-            --glass-bg: rgba(255, 248, 235, 0.85);
-            --glass-border: rgba(217, 119, 6, 0.3);
-            --success: #22c55e;
-            --pending: #f59e0b;
-            --white: #ffffff;
-            --text-dark: #292524;
-            --text-muted: #78716c;
+            /* Sunset/Orange Gradient Theme */
+            --gradient-start: #ff6b35;
+            --gradient-mid: #f7c59f;
+            --gradient-end: #efefbb;
+            --glass-bg: rgba(255, 255, 255, 0.12);
+            --glass-border: rgba(255, 255, 255, 0.25);
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+            
+            /* Text Colors */
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.85);
+            --text-muted: rgba(255, 255, 255, 0.6);
+            
+            /* Status Colors */
+            --success: #00d68f;
+            --warning: #ffc107;
+            --danger: #ff4757;
+            --info: #3498db;
+            
+            /* Spacing */
+            --spacing-xs: 8px;
+            --spacing-sm: 16px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+            
+            /* Border Radius */
+            --radius-sm: 12px;
+            --radius-md: 20px;
+            --radius-lg: 28px;
+            --radius-full: 9999px;
+            
+            /* Transitions */
+            --transition-fast: 150ms ease;
+            --transition-normal: 300ms ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        html {
+            scroll-behavior: smooth;
         }
         
         body {
-            font-family: 'Inter', 'Poppins', sans-serif;
-            background: linear-gradient(180deg, #fef3c7 0%, #fde68a 20%, #f59e0b 40%, #d97706 60%, #92400e 80%, #78350f 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid) 50%, var(--gradient-end));
+            background-attachment: fixed;
             min-height: 100vh;
-            color: var(--text-dark);
+            color: var(--text-primary);
+            line-height: 1.5;
             overflow-x: hidden;
-            position: relative;
         }
         
-        /* Background Pattern */
-        body::before {
+        /* Animated Background Orbs */
+        body::before,
+        body::after {
             content: '';
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: 
-                radial-gradient(circle at 20% 20%, rgba(251,191,36,0.3) 0%, transparent 50%),
-                radial-gradient(circle at 80% 60%, rgba(217,119,6,0.2) 0%, transparent 50%),
-                radial-gradient(circle at 50% 90%, rgba(146,64,14,0.15) 0%, transparent 50%);
-            z-index: 0;
-            pointer-events: none;
-        }
-        
-        /* Floating Particles */
-        .particles {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 0;
-            pointer-events: none;
-            overflow: hidden;
-        }
-        
-        .particle {
-            position: absolute;
-            width: 6px;
-            height: 6px;
-            background: rgba(251,191,36,0.4);
+            width: 600px;
+            height: 600px;
             border-radius: 50%;
-            animation: floatUp linear infinite;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+            animation: float 20s infinite ease-in-out;
         }
         
-        @keyframes floatUp {
-            0% { transform: translateY(100vh) scale(0); opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        body::before {
+            top: -200px;
+            right: -200px;
+            animation-delay: 0s;
         }
         
-        .container {
-            max-width: 480px;
-            margin: 0 auto;
-            padding: 16px;
+        body::after {
+            bottom: -200px;
+            left: -200px;
+            animation-delay: -10s;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(50px, 30px) scale(1.05); }
+            50% { transform: translate(20px, 60px) scale(0.95); }
+            75% { transform: translate(-30px, 20px) scale(1.02); }
+        }
+        
+        /* Main Container */
+        .app-container {
             position: relative;
             z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--spacing-sm);
             padding-bottom: 100px;
         }
         
-        /* Welcome Section */
-        .welcome-section {
-            text-align: center;
-            padding: 20px 0 10px;
-            position: relative;
-        }
-        
-        .profile-ring {
-            width: 90px;
-            height: 90px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #fbbf24, #d97706, #92400e);
-            padding: 3px;
-            margin: 0 auto 12px;
-            animation: pulseRing 3s ease-in-out infinite;
-        }
-        
-        @keyframes pulseRing {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); }
-            50% { box-shadow: 0 0 0 12px rgba(245,158,11,0); }
-        }
-        
-        .profile-img {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid var(--cream-light);
-        }
-        
-        .welcome-text {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: var(--white);
-            text-shadow: 0 2px 10px rgba(69,26,3,0.3);
-            margin-bottom: 4px;
-        }
-        
-        .welcome-name {
-            font-size: 1.6rem;
-            font-weight: 800;
-            color: var(--cream-light);
-            text-shadow: 0 2px 15px rgba(69,26,3,0.4);
-        }
-        
-        /* Main Dashboard Card */
-        .dashboard-card {
+        /* Glassmorphism Card Base */
+        .glass-card {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 20px;
-            margin-top: 16px;
-            box-shadow: 
-                0 8px 32px rgba(120,53,15,0.2),
-                0 2px 8px rgba(0,0,0,0.1),
-                inset 0 1px 0 rgba(255,255,255,0.5);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            margin-bottom: var(--spacing-sm);
+            box-shadow: var(--glass-shadow);
+            transition: transform var(--transition-fast), box-shadow var(--transition-fast);
         }
         
-        .dashboard-title {
-            font-size: 1.1rem;
-            font-weight: 800;
-            text-align: center;
-            color: var(--brown-dark);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            border-bottom: 2px solid rgba(217,119,6,0.15);
+        .glass-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
         }
         
-        .dashboard-title span {
-            background: linear-gradient(135deg, #92400e, #d97706);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+        .glass-card:active {
+            transform: translateY(0);
         }
         
-        /* Task Section */
-        .task-section {
-            background: rgba(254,243,199,0.6);
-            border: 1px solid rgba(217,119,6,0.2);
-            border-radius: 16px;
-            padding: 14px;
-            margin-bottom: 16px;
+        /* Header */
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-sm) 0;
+            margin-bottom: var(--spacing-md);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: linear-gradient(to bottom, rgba(255,107,53,0.9), transparent);
+            backdrop-filter: blur(10px);
         }
         
-        .task-section-title {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--brown-dark);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-        }
-        
-        .task-row {
+        .logo {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(217,119,6,0.1);
+            gap: var(--spacing-xs);
+            font-size: 1.4rem;
+            font-weight: 700;
         }
         
-        .task-row:last-child { border-bottom: none; }
-        
-        .task-icons {
+        .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.1));
+            border-radius: var(--radius-sm);
             display: flex;
-            gap: 8px;
-        }
-        
-        .task-icon-btn {
-            width: 48px;
-            height: 48px;
-            border-radius: 14px;
-            display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
-        }
-        
-        .task-icon-btn:active { transform: scale(0.92); }
-        
-        .task-icon-btn .icon {
             font-size: 1.2rem;
-            margin-bottom: 2px;
+            border: 1px solid var(--glass-border);
         }
         
-        .task-icon-btn .label {
-            font-size: 0.55rem;
-            font-weight: 600;
-            color: var(--brown);
-        }
-        
-        .task-icon-btn.daily-ad {
-            background: linear-gradient(135deg, #bbf7d0, #86efac);
-        }
-        
-        .task-icon-btn.completed {
-            background: linear-gradient(135deg, #fef3c7, #fde68a);
-        }
-        
-        .task-icon-btn.offerwall {
-            background: linear-gradient(135deg, #fed7aa, #fdba74);
-        }
-        
-        .task-item {
+        .user-menu {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            flex: 1;
+            gap: var(--spacing-sm);
         }
         
-        .task-label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--brown-dark);
-        }
-        
-        .task-badge {
-            padding: 4px 14px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .badge-completed {
-            background: rgba(34,197,94,0.15);
-            color: #16a34a;
-            border: 1px solid rgba(34,197,94,0.3);
-        }
-        
-        .badge-pending {
-            background: rgba(245,158,11,0.15);
-            color: #d97706;
-            border: 1px solid rgba(245,158,11,0.3);
-        }
-        
-        .badge-available {
-            background: rgba(59,130,246,0.15);
-            color: #2563eb;
-            border: 1px solid rgba(59,130,246,0.3);
-        }
-        
-        /* Tracker & Withdraw Grid */
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        
-        .tracker-card, .withdraw-card {
-            background: rgba(254,243,199,0.6);
-            border: 1px solid rgba(217,119,6,0.2);
-            border-radius: 16px;
-            padding: 14px;
-        }
-        
-        .card-title {
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: var(--brown-dark);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 10px;
-        }
-        
-        .tracker-info {
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.15));
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-        
-        .tracker-badge {
-            background: linear-gradient(135deg, #d97706, #92400e);
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.6rem;
-            font-weight: 800;
-        }
-        
-        .tracker-label {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-        
-        .tracker-value {
-            font-size: 0.75rem;
-            color: var(--brown-dark);
+            justify-content: center;
             font-weight: 600;
+            font-size: 1.1rem;
+            border: 2px solid var(--glass-border);
+            cursor: pointer;
+            transition: transform var(--transition-fast);
         }
         
-        .progress-container {
-            margin-top: 10px;
+        .avatar:hover {
+            transform: scale(1.05);
         }
         
-        .progress-big {
+        /* Balance Display */
+        .balance-card {
             text-align: center;
-            margin-bottom: 8px;
+            padding: var(--spacing-lg) var(--spacing-md);
         }
         
-        .progress-big .number {
-            font-size: 1.3rem;
+        .balance-label {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-xs);
+        }
+        
+        .balance-amount {
+            font-size: 3.5rem;
             font-weight: 800;
-            color: var(--brown-dark);
+            line-height: 1;
+            margin: var(--spacing-xs) 0;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+            background: linear-gradient(135deg, #fff, #ffeaa7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
-        .progress-bar-bg {
-            width: 100%;
-            height: 8px;
-            background: rgba(217,119,6,0.15);
-            border-radius: 10px;
+        .plan-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 20px;
+            border-radius: var(--radius-full);
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-top: var(--spacing-sm);
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid var(--glass-border);
+        }
+        
+        .plan-free { color: var(--text-secondary); }
+        .plan-pro { 
+            background: linear-gradient(135deg, var(--success), #00cec9);
+            color: #000;
+            border: none;
+        }
+        .plan-influencer {
+            background: linear-gradient(135deg, #ff6b6b, #ffa502, #ffd93d);
+            color: #000;
+            border: none;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255, 165, 2, 0.4); }
+            50% { box-shadow: 0 0 0 12px rgba(255, 165, 2, 0); }
+        }
+        
+        /* Progress Bar */
+        .progress-section {
+            margin: var(--spacing-md) 0;
+        }
+        
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-xs);
+            font-size: 0.9rem;
+        }
+        
+        .progress-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .progress-bar {
+            height: 14px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-full);
             overflow: hidden;
-        }
-        
-        .progress-bar-fill {
-            height: 100%;
-            border-radius: 10px;
-            background: linear-gradient(90deg, #f59e0b, #d97706, #92400e);
-            transition: width 1s ease-out;
             position: relative;
         }
         
-        .progress-bar-fill::after {
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success), #00cec9, #81ecec);
+            border-radius: var(--radius-full);
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        
+        .progress-fill::after {
             content: '';
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
             animation: shimmer 2s infinite;
         }
@@ -382,365 +300,493 @@
             100% { transform: translateX(100%); }
         }
         
-        /* Withdraw Card */
-        .withdraw-card {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+        .progress-text {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 4px;
             text-align: center;
         }
         
-        .balance-label {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            font-weight: 500;
+        /* Tab Navigation */
+        .tabs-container {
+            margin: var(--spacing-md) 0;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-full);
+            border: 1px solid var(--glass-border);
+            scrollbar-width: none;
+        }
+        
+        .tabs::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            min-width: max-content;
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-full);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+            position: relative;
+        }
+        
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            width: 0;
+            height: 3px;
+            background: var(--success);
+            border-radius: var(--radius-full);
+            transition: all var(--transition-fast);
+            transform: translateX(-50%);
+        }
+        
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .tab-btn.active {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.25);
+        }
+        
+        .tab-btn.active::after {
+            width: 60%;
+        }
+        
+        .tab-content {
+            display: none;
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Task Cards Grid */
+        .tasks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--spacing-sm);
+        }
+        
+        .task-card {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-sm);
+        }
+        
+        .task-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid var(--glass-border);
+        }
+        
+        .task-icon.youtube { background: linear-gradient(135deg, #ff0000, #cc0000); }
+        .task-icon.instagram { 
+            background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); 
+        }
+        .task-icon.facebook { background: linear-gradient(135deg, #1877f2, #0d57d6); }
+        
+        .task-details {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .task-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 2px;
+        }
+        
+        .task-handle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
             margin-bottom: 4px;
         }
         
-        .balance-amount {
-            font-size: 1.8rem;
-            font-weight: 900;
-            color: var(--white);
-            text-shadow: 0 2px 8px rgba(69,26,3,0.3);
-            margin-bottom: 10px;
-            background: linear-gradient(135deg, #92400e, #451a03);
+        .task-points {
+            color: var(--success);
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+        
+        .task-action {
+            margin-left: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+        
+        .visit-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+        }
+        
+        .visit-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+        
+        .complete-btn {
+            width: 100%;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, var(--success), #00cec9);
+            border: none;
+            border-radius: var(--radius-sm);
+            color: #000;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            margin-top: 4px;
+        }
+        
+        .complete-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 214, 143, 0.4);
+        }
+        
+        .complete-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.15);
+            color: var(--text-muted);
+        }
+        
+        /* AI Chat Interface */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 300px);
+            min-height: 400px;
+            max-height: 600px;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--spacing-sm);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-xs);
+            margin-bottom: var(--spacing-sm);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.3) transparent;
+        }
+        
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+        }
+        
+        .message {
+            max-width: 85%;
+            padding: 14px 18px;
+            border-radius: 20px;
+            line-height: 1.4;
+            animation: messageIn 0.2s ease-out;
+        }
+        
+        @keyframes messageIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .message.user {
+            align-self: flex-end;
+            background: rgba(255, 255, 255, 0.25);
+            border-bottom-right-radius: 6px;
+            border: 1px solid var(--glass-border);
+        }
+        
+        .message.assistant {
+            align-self: flex-start;
+            background: rgba(0, 0, 0, 0.25);
+            border-bottom-left-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .message.error {
+            background: rgba(255, 71, 87, 0.2);
+            border-color: var(--danger);
+            color: #ffcccc;
+        }
+        
+        .message-time {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-align: right;
+        }
+        
+        .chat-input-container {
+            padding: var(--spacing-xs) 0;
+        }
+        
+        .chat-input {
+            display: flex;
+            gap: var(--spacing-xs);
+            align-items: flex-end;
+        }
+        
+        .chat-input textarea {
+            flex: 1;
+            min-height: 50px;
+            max-height: 120px;
+            padding: 14px 18px;
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+            font-size: 1rem;
+            resize: vertical;
+            outline: none;
+            transition: border-color var(--transition-fast);
+        }
+        
+        .chat-input textarea:focus {
+            border-color: var(--success);
+            background: rgba(255, 255, 255, 0.18);
+        }
+        
+        .chat-input textarea::placeholder {
+            color: var(--text-muted);
+        }
+        
+        .chat-input button {
+            width: 50px;
+            height: 50px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, var(--success), #00cec9);
+            border: none;
+            color: #000;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        
+        .chat-input button:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0, 214, 143, 0.5);
+        }
+        
+        .chat-input button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .ai-cost-notice {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--warning);
+            margin-top: var(--spacing-xs);
+            padding: 8px;
+            background: rgba(255, 193, 7, 0.15);
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+        
+        /* Profile Section */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .profile-stat {
+            text-align: center;
+            padding: var(--spacing-sm);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: var(--spacing-xs) 0;
+            background: linear-gradient(135deg, #fff, #ffeaa7);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         
-        .btn-withdraw {
-            width: 100%;
-            padding: 10px 16px;
-            border-radius: 12px;
-            border: none;
-            background: linear-gradient(135deg, #92400e, #78350f, #451a03);
-            color: var(--cream-light);
-            font-size: 0.8rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            box-shadow: 0 4px 12px rgba(69,26,3,0.3);
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
         }
         
-        .btn-withdraw:active {
-            transform: scale(0.96);
-            box-shadow: 0 2px 6px rgba(69,26,3,0.2);
+        /* Payment Section */
+        .payment-form {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-sm);
         }
         
-        .btn-withdraw:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
         
-        /* Social Media Section */
-        .social-section {
-            margin-top: 16px;
+        .form-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
         }
         
-        .social-title {
-            font-size: 0.8rem;
-            font-weight: 700;
-            color: var(--brown-dark);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 10px;
+        .form-group input,
+        .form-group select {
+            padding: 14px 18px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.12);
+            color: var(--text-primary);
+            font-size: 1rem;
+            outline: none;
+            transition: border-color var(--transition-fast);
         }
         
-        .social-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 8px;
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--success);
+            background: rgba(255, 255, 255, 0.18);
         }
         
-        .social-card {
-            background: rgba(254,243,199,0.7);
-            border: 1px solid rgba(217,119,6,0.2);
-            border-radius: 14px;
-            padding: 12px 8px;
+        .upi-display {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 16px;
+            border-radius: var(--radius-sm);
+            font-family: 'SF Mono', 'Fira Code', monospace;
             text-align: center;
+            font-size: 1.1rem;
+            margin: var(--spacing-xs) 0;
+            user-select: all;
+            border: 1px dashed var(--glass-border);
             cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-            display: block;
+            transition: all var(--transition-fast);
         }
         
-        .social-card:active {
-            transform: scale(0.95);
+        .upi-display:hover {
+            background: rgba(0, 0, 0, 0.35);
+            border-style: solid;
         }
         
-        .social-icon {
+        .upi-display:active {
+            transform: scale(0.99);
+        }
+        
+        .payment-btn {
+            padding: 16px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid));
+            border: none;
+            border-radius: var(--radius-sm);
+            color: #000;
+            font-weight: 700;
+            font-size: 1.05rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            margin-top: var(--spacing-xs);
+        }
+        
+        .payment-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(255, 107, 53, 0.4);
+        }
+        
+        .payment-btn:active {
+            transform: translateY(0);
+        }
+        
+        /* Loading States */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-lg);
+            color: var(--text-secondary);
+            gap: var(--spacing-sm);
+        }
+        
+        .spinner {
             width: 40px;
             height: 40px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 8px;
-            font-size: 1.2rem;
-        }
-        
-        .social-icon.youtube { background: linear-gradient(135deg, #fee2e2, #fecaca); }
-        .social-icon.instagram { background: linear-gradient(135deg, #fce7f3, #fbcfe8); }
-        .social-icon.facebook { background: linear-gradient(135deg, #dbeafe, #bfdbfe); }
-        
-        .social-name {
-            font-size: 0.65rem;
-            font-weight: 700;
-            color: var(--brown-dark);
-            margin-bottom: 2px;
-        }
-        
-        .social-handle {
-            font-size: 0.55rem;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-        
-        /* Bottom Social Cards (Large) */
-        .social-cards-bottom {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 8px;
-            margin-top: 12px;
-        }
-        
-        .social-card-bottom {
-            background: rgba(255,255,255,0.15);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 14px;
-            padding: 14px 8px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-            display: block;
-        }
-        
-        .social-card-bottom:active {
-            transform: scale(0.95);
-        }
-        
-        .social-card-bottom .icon-circle {
-            width: 44px;
-            height: 44px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top-color: var(--success);
             border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 8px;
-            font-size: 1.3rem;
+            animation: spin 1s linear infinite;
         }
         
-        .icon-circle.yt { background: #ef4444; }
-        .icon-circle.ig { background: linear-gradient(135deg, #f43f5e, #a855f7, #ec4899); }
-        .icon-circle.fb { background: #2563eb; }
-        
-        .social-card-bottom .name {
-            font-size: 0.7rem;
-            font-weight: 700;
-            color: var(--white);
-            text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
         
-        .social-card-bottom .handle {
-            font-size: 0.6rem;
-            color: rgba(255,255,255,0.8);
-        }
-        
-        /* Quick Actions */
-        .quick-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 16px;
-        }
-        
-        .action-btn {
-            padding: 14px;
-            border-radius: 16px;
-            border: none;
-            font-size: 0.8rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        
-        .action-btn:active { transform: scale(0.96); }
-        
-        .action-btn.primary {
-            background: linear-gradient(135deg, #d97706, #92400e);
-            color: white;
-            box-shadow: 0 4px 15px rgba(217,119,6,0.4);
-        }
-        
-        .action-btn.secondary {
-            background: rgba(255,255,255,0.2);
-            backdrop-filter: blur(10px);
-            color: var(--white);
-            border: 1px solid rgba(255,255,255,0.3);
-            text-shadow: 0 1px 4px rgba(0,0,0,0.2);
-        }
-        
-        /* Toast */
-        .toast {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-100px);
-            background: rgba(30,41,59,0.95);
-            backdrop-filter: blur(12px);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 14px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            z-index: 1000;
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            max-width: 90vw;
-        }
-        
-        .toast.show {
-            transform: translateX(-50%) translateY(0);
-        }
-        
-        .toast.success { border-left: 4px solid #22c55e; }
-        .toast.error { border-left: 4px solid #ef4444; }
-        .toast.info { border-left: 4px solid #3b82f6; }
-        
-        /* Modal */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(4px);
-            z-index: 100;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        
-        .modal-overlay.active { display: flex; }
-        
-        .modal-box {
-            background: linear-gradient(145deg, #fffbeb, #fef3c7);
-            border: 1px solid rgba(217,119,6,0.3);
-            border-radius: 24px;
-            padding: 24px;
-            width: 100%;
-            max-width: 360px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            animation: modalIn 0.3s ease-out;
-        }
-        
-        @keyframes modalIn {
-            from { opacity: 0; transform: scale(0.9) translateY(20px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        
-        .modal-title {
-            font-size: 1.1rem;
-            font-weight: 800;
-            color: var(--brown-dark);
-            text-align: center;
-            margin-bottom: 16px;
-        }
-        
-        .modal-input {
-            width: 100%;
-            padding: 12px 16px;
-            border-radius: 12px;
-            border: 1px solid rgba(217,119,6,0.3);
-            background: rgba(255,255,255,0.8);
-            font-size: 0.85rem;
-            margin-bottom: 12px;
-            outline: none;
-            font-family: inherit;
-        }
-        
-        .modal-input:focus {
-            border-color: var(--gold);
-            box-shadow: 0 0 0 3px rgba(245,158,11,0.2);
-        }
-        
-        .modal-btn {
-            width: 100%;
-            padding: 12px;
-            border-radius: 12px;
-            border: none;
-            font-size: 0.85rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .modal-btn.primary {
-            background: linear-gradient(135deg, #d97706, #92400e);
-            color: white;
-            margin-bottom: 8px;
-        }
-        
-        .modal-btn.secondary {
-            background: rgba(217,119,6,0.1);
-            color: var(--brown);
-        }
-        
-        /* Referral Section */
-        .referral-card {
-            background: linear-gradient(135deg, rgba(251,191,36,0.2), rgba(217,119,6,0.15));
-            border: 1px solid rgba(217,119,6,0.25);
-            border-radius: 16px;
-            padding: 14px;
-            margin-top: 16px;
-            text-align: center;
-        }
-        
-        .referral-link-box {
-            display: flex;
-            align-items: center;
-            background: rgba(255,255,255,0.6);
-            border-radius: 10px;
-            padding: 8px 12px;
-            margin: 10px 0;
-        }
-        
-        .referral-link-box code {
-            flex: 1;
-            font-size: 0.7rem;
-            color: var(--brown-dark);
-            word-break: break-all;
-        }
-        
-        .copy-btn {
-            background: linear-gradient(135deg, #d97706, #92400e);
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        
-        /* Loading Skeleton */
         .skeleton {
-            background: linear-gradient(90deg, #fef3c7 25%, #fde68a 50%, #fef3c7 75%);
+            background: linear-gradient(90deg, 
+                rgba(255,255,255,0.1) 25%, 
+                rgba(255,255,255,0.2) 50%, 
+                rgba(255,255,255,0.1) 75%);
             background-size: 200% 100%;
             animation: skeleton 1.5s infinite;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
         }
         
         @keyframes skeleton {
@@ -748,852 +794,820 @@
             100% { background-position: -200% 0; }
         }
         
-        /* Bottom Nav */
-        .bottom-nav {
+        /* Toast Notifications */
+        .toast-container {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(255,248,235,0.95);
-            backdrop-filter: blur(20px);
-            border-top: 1px solid rgba(217,119,6,0.2);
-            padding: 8px 16px;
-            padding-bottom: max(8px, env(safe-area-inset-bottom));
-            display: flex;
-            justify-content: space-around;
-            z-index: 50;
-        }
-        
-        .nav-item {
+            bottom: var(--spacing-lg);
+            right: var(--spacing-lg);
+            z-index: 1000;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 2px;
-            padding: 6px 12px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: none;
-            background: none;
+            gap: var(--spacing-xs);
+            max-width: 350px;
         }
         
-        .nav-item.active {
-            background: rgba(217,119,6,0.15);
+        .toast {
+            padding: 14px 20px;
+            border-radius: var(--radius-sm);
+            background: rgba(30, 30, 30, 0.95);
+            border-left: 4px solid var(--info);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
+            backdrop-filter: blur(10px);
         }
         
-        .nav-item .icon { font-size: 1.3rem; }
-        .nav-item .label {
-            font-size: 0.6rem;
-            font-weight: 600;
-            color: var(--text-muted);
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.warning { border-left-color: var(--warning); }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
         
-        .nav-item.active .label { color: var(--gold-dark); }
-        
-        /* Responsive */
-        @media (max-width: 360px) {
-            .container { padding: 12px; }
-            .dashboard-card { padding: 16px; }
-            .balance-amount { font-size: 1.5rem; }
-            .progress-big .number { font-size: 1.1rem; }
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateX(50px);
+            }
         }
         
-        /* Confetti */
-        .confetti-piece {
-            position: fixed;
-            width: 8px;
-            height: 8px;
-            z-index: 200;
-            pointer-events: none;
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .app-container {
+                padding: var(--spacing-xs);
+                padding-bottom: 90px;
+            }
+            
+            .app-header {
+                padding: var(--spacing-xs) 0;
+            }
+            
+            .logo {
+                font-size: 1.2rem;
+            }
+            
+            .logo-icon {
+                width: 38px;
+                height: 38px;
+                font-size: 1rem;
+            }
+            
+            .balance-amount {
+                font-size: 2.8rem;
+            }
+            
+            .balance-card {
+                padding: var(--spacing-md) var(--spacing-sm);
+            }
+            
+            .tasks-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chat-container {
+                height: calc(100vh - 280px);
+            }
+            
+            .tabs {
+                gap: 4px;
+            }
+            
+            .tab-btn {
+                padding: 10px 14px;
+                font-size: 0.85rem;
+            }
+            
+            .toast-container {
+                left: var(--spacing-sm);
+                right: var(--spacing-sm);
+                max-width: none;
+            }
         }
         
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 0; }
+        @media (max-width: 480px) {
+            .balance-amount {
+                font-size: 2.3rem;
+            }
+            
+            .task-card {
+                flex-direction: column;
+                align-items: flex-start;
+                text-align: left;
+            }
+            
+            .task-action {
+                margin-left: 0;
+                width: 100%;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .chat-input textarea {
+                min-height: 44px;
+                padding: 12px 16px;
+                font-size: 0.95rem;
+            }
+            
+            .chat-input button {
+                width: 44px;
+                height: 44px;
+                font-size: 1.1rem;
+            }
+        }
+        
+        /* Utility Classes */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .hidden { display: none !important; }
+        .mt-1 { margin-top: var(--spacing-xs); }
+        .mt-2 { margin-top: var(--spacing-sm); }
+        .mb-1 { margin-bottom: var(--spacing-xs); }
+        .mb-2 { margin-bottom: var(--spacing-sm); }
+        .fw-bold { font-weight: 700; }
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .text-danger { color: var(--danger); }
+        
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+            .glass-card {
+                background: white;
+                border: 1px solid #ddd;
+                box-shadow: none;
+            }
+            .no-print { display: none !important; }
+        }
     </style>
 </head>
 <body>
-    
-    <!-- Particles -->
-    <div class="particles" id="particles"></div>
-    
-    <!-- Toast -->
-    <div class="toast" id="toast">
-        <span id="toastIcon">✅</span>
-        <span id="toastMsg">Success!</span>
-    </div>
-    
-    <!-- Withdraw Modal -->
-    <div class="modal-overlay" id="withdrawModal">
-        <div class="modal-box">
-            <div class="modal-title">💰 Request Withdrawal</div>
-            <p style="font-size:0.8rem;color:var(--text-muted);text-align:center;margin-bottom:12px;">
-                Available: <strong id="modalBalance">$0.00</strong>
-            </p>
-            <select id="withdrawMethod" class="modal-input">
-                <option value="">Select Payment Method</option>
-                <option value="paypal">💳 PayPal</option>
-                <option value="crypto">₿ USDT (TRC20)</option>
-                <option value="bank">🏦 Bank Transfer</option>
-            </select>
-            <input type="text" id="withdrawAddress" class="modal-input" placeholder="PayPal email / Wallet address">
-            <button class="modal-btn primary" onclick="submitWithdraw()">Submit Request</button>
-            <button class="modal-btn secondary" onclick="closeWithdrawModal()">Cancel</button>
-        </div>
-    </div>
-    
-    <!-- Referral Modal -->
-    <div class="modal-overlay" id="referralModal">
-        <div class="modal-box">
-            <div class="modal-title">👥 Invite Friends</div>
-            <p style="font-size:0.8rem;color:var(--text-muted);text-align:center;margin-bottom:12px;">
-                Earn <strong style="color:var(--gold-dark);">+50 Points</strong> for each friend!
-            </p>
-            <div class="referral-link-box">
-                <code id="refLink">Loading...</code>
-                <button class="copy-btn" onclick="copyRefLink()">Copy</button>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <div class="logo-icon">🔍</div>
+                <span>Ultimate Media Search</span>
             </div>
-            <div style="display:flex;justify-content:space-around;margin:12px 0;">
-                <div style="text-align:center;">
-                    <div style="font-size:1.3rem;font-weight:800;color:var(--brown-dark);" id="refCount">0</div>
-                    <div style="font-size:0.65rem;color:var(--text-muted);">Referrals</div>
-                </div>
-                <div style="text-align:center;">
-                    <div style="font-size:1.3rem;font-weight:800;color:var(--success);" id="refEarnings">0</div>
-                    <div style="font-size:0.65rem;color:var(--text-muted);">Points Earned</div>
-                </div>
+            <div class="user-menu">
+                <div class="avatar" id="userAvatar" title="Profile">U</div>
             </div>
-            <button class="modal-btn primary" onclick="shareReferral()">📤 Share on Telegram</button>
-            <button class="modal-btn secondary" onclick="closeReferralModal()">Close</button>
-        </div>
-    </div>
-    
-    <!-- Main Container -->
-    <div class="container" id="mainContainer">
+        </header>
         
-        <!-- Welcome Section -->
-        <div class="welcome-section">
-            <div class="profile-ring">
-                <img src="https://i.ibb.co/9kmTw4Gh/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg" 
-                     alt="Profile" class="profile-img" id="profileImg"
-                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%23d97706%22/><text x=%2250%22 y=%2260%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2240%22>👤</text></svg>'">
+        <!-- Balance Card -->
+        <section class="glass-card balance-card">
+            <div class="balance-label">Your Points Balance</div>
+            <div class="balance-amount" id="balanceDisplay">0</div>
+            <div class="plan-badge" id="planBadge">
+                <span id="planIcon">🆓</span>
+                <span id="planName">Free</span>
             </div>
-            <div class="welcome-text">Welcome back,</div>
-            <div class="welcome-name" id="userName">Loading...</div>
-        </div>
+        </section>
         
-        <!-- Main Dashboard Card -->
-        <div class="dashboard-card">
-            <div class="dashboard-title">
-                <span>📊 Your Ad-Earning Dashboard</span>
+        <!-- Ad Tracker Progress -->
+        <section class="glass-card progress-section">
+            <div class="progress-header">
+                <span class="progress-title">📊 Daily Progress</span>
+                <span id="progressPercent">0%</span>
             </div>
-            
-            <!-- Today's Tasks -->
-            <div class="task-section">
-                <div class="task-section-title">📅 Today's Ad View Tasks</div>
-                
-                <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                    <div class="task-icons">
-                        <button class="task-icon-btn daily-ad" onclick="watchDailyAd()" id="dailyAdBtn">
-                            <span class="icon">📺</span>
-                            <span class="label">Daily Ad</span>
-                        </button>
-                        <button class="task-icon-btn completed" onclick="showToast('Check your completed tasks','info')">
-                            <span class="icon">✅</span>
-                            <span class="label">Completed</span>
-                        </button>
-                        <button class="task-icon-btn offerwall" onclick="openOfferwall()">
-                            <span class="icon">💎</span>
-                            <span class="label">Offerwall</span>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="task-row">
-                    <span class="task-label">Daily Ad Stream</span>
-                    <span class="task-badge badge-completed" id="dailyAdBadge">COMPLETED</span>
-                </div>
-                <div class="task-row">
-                    <span class="task-label">Offerwall Task</span>
-                    <span class="task-badge badge-pending" id="offerwallBadge">PENDING</span>
-                </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
             </div>
-            
-            <!-- Tracker & Withdraw Grid -->
-            <div class="grid-2">
-                <div class="tracker-card">
-                    <div class="card-title">📊 AD View Tracker</div>
-                    <div class="tracker-info">
-                        <span class="tracker-badge">AD</span>
-                        <div>
-                            <div class="tracker-label">AD VIEWED:</div>
-                            <div class="tracker-value" id="adViewedSmall">0 / 2,000</div>
+            <div class="progress-text" id="progressText">0 of 3 tasks completed</div>
+        </section>
+        
+        <!-- Tab Navigation -->
+        <nav class="tabs-container">
+            <div class="tabs" role="tablist">
+                <button class="tab-btn active" data-tab="home" role="tab" aria-selected="true">🏠 Home</button>
+                <button class="tab-btn" data-tab="tasks" role="tab">🎯 Tasks</button>
+                <button class="tab-btn" data-tab="ai" role="tab">🤖 AI Chat</button>
+                <button class="tab-btn" data-tab="profile" role="tab">👤 Profile</button>
+            </div>
+        </nav>
+        
+        <!-- Tab Contents -->
+        <main>
+            <!-- Home Tab -->
+            <section id="home" class="tab-content active">
+                <div class="glass-card">
+                    <h3>🎉 Welcome Back!</h3>
+                    <p class="mt-1" style="color: var(--text-secondary)">
+                        Complete social tasks to earn points, upgrade your plan for premium features, 
+                        and chat with AI to get instant media insights.
+                    </p>
+                    
+                    <div class="profile-grid mt-2">
+                        <div class="profile-stat">
+                            <div class="stat-value" id="totalEarned">0</div>
+                            <div class="stat-label">Total Earned</div>
                         </div>
-                    </div>
-                    <div class="progress-container">
-                        <div class="progress-big">
-                            <div class="number" id="adViewedBig">0 / 2,000</div>
+                        <div class="profile-stat">
+                            <div class="stat-value" id="tasksDone">0</div>
+                            <div class="stat-label">Tasks Done</div>
                         </div>
-                        <div class="progress-bar-bg">
-                            <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+                        <div class="profile-stat">
+                            <div class="stat-value" id="aiMessages">0</div>
+                            <div class="stat-label">AI Messages</div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="withdraw-card">
-                    <div class="card-title">💰 WITHDRAW EARNINGS</div>
-                    <div class="balance-label">AVAILABLE BALANCE:</div>
-                    <div class="balance-amount" id="balanceDisplay">$0.00</div>
-                    <button class="btn-withdraw" onclick="openWithdrawModal()" id="withdrawBtn">
-                        Request Payout
-                    </button>
+                <div class="glass-card">
+                    <h3>⚡ Quick Actions</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 16px;">
+                        <button class="complete-btn" onclick="switchTab('tasks')">🎯 Do Tasks</button>
+                        <button class="complete-btn" style="background: linear-gradient(135deg, #3498db, #2980b9);" onclick="switchTab('ai')">🤖 Chat AI</button>
+                        <button class="complete-btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad);" onclick="switchTab('profile')">💳 Upgrade</button>
+                    </div>
                 </div>
-            </div>
+            </section>
             
-            <!-- Social Media Links (Top) -->
-            <div class="social-section">
-                <div class="social-title">🔗 SOCIAL MEDIA LINKS</div>
-                <div class="social-grid">
-                    <a href="https://www.youtube.com/@USSoccerPulse" target="_blank" class="social-card" onclick="claimSocialTask('youtube')">
-                        <div class="social-icon youtube">▶️</div>
-                        <div class="social-name">YouTube</div>
-                        <div class="social-handle">@USSoccerPulse</div>
-                    </a>
-                    <a href="https://www.instagram.com/digital_rockstar_m" target="_blank" class="social-card" onclick="claimSocialTask('instagram')">
-                        <div class="social-icon instagram">📷</div>
-                        <div class="social-name">Instagram</div>
-                        <div class="social-handle">@digital_rockstar_m</div>
-                    </a>
-                    <a href="https://www.facebook.com/UltimateMediaSearch" target="_blank" class="social-card" onclick="claimSocialTask('facebook')">
-                        <div class="social-icon facebook">📘</div>
-                        <div class="social-name">Facebook</div>
-                        <div class="social-handle">UltimateMediaSearch</div>
-                    </a>
+            <!-- Tasks Tab -->
+            <section id="tasks" class="tab-content">
+                <div class="glass-card">
+                    <h3>🎯 Social Media Tasks</h3>
+                    <p style="color: var(--text-secondary); margin: 8px 0 16px;">
+                        Earn <b class="text-success">100 points</b> per completed task. Tasks reset every 24 hours.
+                    </p>
+                    
+                    <div class="tasks-grid" id="tasksGrid">
+                        <!-- Tasks injected by JS -->
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <div>Loading tasks...</div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Social Media Cards (Bottom - Large) -->
-        <div style="margin-top:16px;">
-            <div class="social-cards-bottom">
-                <a href="https://www.youtube.com/@USSoccerPulse" target="_blank" class="social-card-bottom" onclick="claimSocialTask('youtube')">
-                    <div class="icon-circle yt">▶️</div>
-                    <div class="name">YouTube</div>
-                    <div class="handle">@USSoccerPulse</div>
-                </a>
-                <a href="https://www.instagram.com/digital_rockstar_m" target="_blank" class="social-card-bottom" onclick="claimSocialTask('instagram')">
-                    <div class="icon-circle ig">📷</div>
-                    <div class="name">Instagram</div>
-                    <div class="handle">@digital_rockstar_m</div>
-                </a>
-                <a href="https://www.facebook.com/UltimateMediaSearch" target="_blank" class="social-card-bottom" onclick="claimSocialTask('facebook')">
-                    <div class="icon-circle fb">📘</div>
-                    <div class="name">Facebook</div>
-                    <div class="handle">UltimateMediaSearch</div>
-                </a>
-            </div>
-        </div>
-        
-        <!-- Quick Actions -->
-        <div class="quick-actions">
-            <button class="action-btn primary" onclick="showReferralModal()">
-                👥 Invite Friends <span style="font-size:0.7rem;opacity:0.8;">+50</span>
-            </button>
-            <button class="action-btn secondary" onclick="refreshData()">
-                🔄 Refresh Data
-            </button>
-        </div>
-        
-        <!-- Referral Stats -->
-        <div class="referral-card">
-            <div style="font-size:0.8rem;font-weight:700;color:var(--brown-dark);margin-bottom:8px;">👥 Referral Stats</div>
-            <div style="display:flex;justify-content:space-around;">
-                <div>
-                    <div style="font-size:1.2rem;font-weight:800;color:var(--gold-dark);" id="dashRefCount">0</div>
-                    <div style="font-size:0.65rem;color:var(--text-muted);">Friends Joined</div>
+            </section>
+            
+            <!-- AI Chat Tab -->
+            <section id="ai" class="tab-content">
+                <div class="glass-card chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message assistant">
+                            👋 Hello! I'm your AI media assistant. Ask me anything about content, trends, or strategy!
+                            <div class="message-time">Just now</div>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-cost-notice" id="aiCostNotice">
+                        💡 Free users: 10 points per message • Pro users: Unlimited
+                    </div>
+                    
+                    <div class="chat-input-container">
+                        <div class="chat-input">
+                            <textarea 
+                                id="chatInput" 
+                                placeholder="Type your message..." 
+                                rows="2"
+                                maxlength="500"
+                            ></textarea>
+                            <button id="sendBtn" onclick="sendAIMessage()">➤</button>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <div style="font-size:1.2rem;font-weight:800;color:var(--success);" id="dashRefPoints">0</div>
-                    <div style="font-size:0.65rem;color:var(--text-muted);">Points Earned</div>
+            </section>
+            
+            <!-- Profile Tab -->
+            <section id="profile" class="tab-content">
+                <div class="glass-card">
+                    <h3>👤 Account Details</h3>
+                    
+                    <div class="profile-grid">
+                        <div class="profile-stat">
+                            <div class="stat-value" id="profilePoints">0</div>
+                            <div class="stat-label">Current Points</div>
+                        </div>
+                        <div class="profile-stat">
+                            <div class="stat-value" id="profilePlan">Free</div>
+                            <div class="stat-label">Membership</div>
+                        </div>
+                        <div class="profile-stat">
+                            <div class="stat-value" id="memberSince">-</div>
+                            <div class="stat-label">Member Since</div>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <div style="font-size:1.2rem;font-weight:800;color:var(--brown-dark);" id="dashTotalEarnings">$0.00</div>
-                    <div style="font-size:0.65rem;color:var(--text-muted);">Total Earned</div>
+                
+                <div class="glass-card">
+                    <h3>💳 Upgrade to Pro</h3>
+                    
+                    <div class="payment-form">
+                        <div class="form-group">
+                            <label>Select Plan</label>
+                            <select id="planSelect" onchange="updatePaymentAmount()">
+                                <option value="100">🥈 Earner Pro - ₹100/month</option>
+                                <option value="500">🥇 Influencer Pro - ₹500/month</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Pay via UPI</label>
+                            <div class="upi-display" onclick="copyToClipboard('8543083014@ikwik')" title="Click to copy">
+                                8543083014@ikwik
+                            </div>
+                            <small style="color: var(--text-muted); display: block; text-align: center;">
+                                Tap to copy UPI ID • Send exact amount
+                            </small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Transaction ID</label>
+                            <input type="text" id="txnId" placeholder="e.g., UPI123456789" maxlength="30">
+                        </div>
+                        
+                        <button class="payment-btn" onclick="submitPayment()">
+                            ✅ Submit Payment Proof
+                        </button>
+                    </div>
+                    
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 16px; text-align: center;">
+                        ⏱️ Approval time: ~24 hours • Keep your payment receipt safe
+                    </p>
                 </div>
-            </div>
-        </div>
-        
+            </section>
+        </main>
     </div>
     
-    <!-- Bottom Navigation -->
-    <nav class="bottom-nav">
-        <button class="nav-item active" onclick="switchTab('home')">
-            <span class="icon">🏠</span>
-            <span class="label">Home</span>
-        </button>
-        <button class="nav-item" onclick="switchTab('tasks')">
-            <span class="icon">📋</span>
-            <span class="label">Tasks</span>
-        </button>
-        <button class="nav-item" onclick="switchTab('earn')">
-            <span class="icon">💰</span>
-            <span class="label">Earn</span>
-        </button>
-        <button class="nav-item" onclick="switchTab('profile')">
-            <span class="icon">👤</span>
-            <span class="label">Profile</span>
-        </button>
-    </nav>
-
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <!-- Firebase Config (injected by Flask) -->
+    <script id="firebase-config" type="application/json">
+        {{ firebase_config|safe }}
+    </script>
+    
+    <!-- Main Application Script -->
     <script>
-        // ─────────────────────────────────────────────────────────────────────
-        // 🔥 Firebase Configuration
-        // ─────────────────────────────────────────────────────────────────────
-        const firebaseConfig = {
-            apiKey: "AIzaSyD50eWvysruXgtgpDhhCVE2zdbSbLkFBwk",
-            authDomain: "ultimatemediasearch.firebaseapp.com",
-            databaseURL: "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "ultimatemediasearch",
-            storageBucket: "ultimatemediasearch.firebasestorage.app",
-            messagingSenderId: "123003124713",
-            appId: "1:123003124713:web:c738c97b2772b112822978"
-        };
+        // ============= CONFIGURATION =============
+        const API_BASE = window.location.origin;
+        let currentUser = null;
+        let firebaseApp = null;
+        let chatHistory = [];
         
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        
-        // ─────────────────────────────────────────────────────────────────────
-        // 📊 App Configuration
-        // ─────────────────────────────────────────────────────────────────────
-        const APP_CONFIG = {
-            POINTS_PER_DOLLAR: 100,
-            AD_POINTS: 25,
-            SOCIAL_POINTS: 100,
-            REFERRAL_BONUS: 50,
-            DAILY_AD_LIMIT: 2000,
-            AD_LINK: "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b",
-            YOUTUBE_LINK: "https://www.youtube.com/@USSoccerPulse",
-            INSTAGRAM_LINK: "https://www.instagram.com/digital_rockstar_m",
-            FACEBOOK_LINK: "https://www.facebook.com/UltimateMediaSearch"
-        };
-        
-        // ─────────────────────────────────────────────────────────────────────
-        // 🧑 User State
-        // ─────────────────────────────────────────────────────────────────────
-        const params = new URLSearchParams(window.location.search);
-        let USER_ID = parseInt(params.get('id')) || 0;
-        let USER_NAME = params.get('name') || 'User';
-        let USER_DATA = {};
-        let AD_VIEW_COUNT = 0;
-        let CLAIMED_SOCIAL = JSON.parse(localStorage.getItem(`claimed_${USER_ID}`) || '{}');
-        
-        // Telegram WebApp
-        const tg = window.Telegram?.WebApp;
-        if (tg) {
-            tg.ready();
-            tg.expand();
-            if (tg.initDataUnsafe?.user) {
-                if (!USER_ID) USER_ID = tg.initDataUnsafe.user.id;
-                if (USER_NAME === 'User') USER_NAME = tg.initDataUnsafe.user.first_name || 'User';
-            }
-        }
-        
-        // ─────────────────────────────────────────────────────────────────────
-        // 🚀 Initialize
-        // ─────────────────────────────────────────────────────────────────────
-        document.addEventListener('DOMContentLoaded', () => {
-            createParticles();
+        // ============= INITIALIZATION =============
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Initialize Firebase
+            initFirebase();
             
-            if (!USER_ID) {
-                showToast('❌ Invalid access. Open from Telegram bot.', 'error');
-                return;
-            }
+            // Get or generate user ID
+            const userId = getUserId();
             
-            document.getElementById('userName').textContent = USER_NAME + '!';
+            // Load user data
+            await loadUserData(userId);
             
-            loadUserData();
-            setupRealtimeListener();
-            updateUI();
+            // Setup tab navigation
+            setupTabs();
+            
+            // Setup chat input
+            setupChatInput();
+            
+            // Auto-focus chat input on tab switch
+            document.querySelector('[data-tab="ai"]').addEventListener('click', () => {
+                setTimeout(() => document.getElementById('chatInput')?.focus(), 300);
+            });
+            
+            console.log('✅ Dashboard initialized');
         });
         
-        // ─────────────────────────────────────────────────────────────────────
-        // 🗄️ Firebase Operations
-        // ─────────────────────────────────────────────────────────────────────
-        
-        async function loadUserData() {
+        // ============= FIREBASE SETUP =============
+        function initFirebase() {
             try {
-                // Try to get from Firebase
-                const snapshot = await db.ref(`users/${USER_ID}`).once('value');
-                USER_DATA = snapshot.val() || {};
-                
-                // If user doesn't exist, create
-                if (!USER_DATA.uid) {
-                    await createUser();
-                }
-                
-                // Extract data
-                AD_VIEW_COUNT = USER_DATA.ad_views || 0;
-                
-                updateUI();
-                
-            } catch (err) {
-                console.error('Load user error:', err);
-                // Load from localStorage as fallback
-                const saved = localStorage.getItem(`user_${USER_ID}`);
-                if (saved) {
-                    USER_DATA = JSON.parse(saved);
-                    AD_VIEW_COUNT = USER_DATA.ad_views || 0;
-                    updateUI();
-                }
+                const config = JSON.parse(document.getElementById('firebase-config').textContent);
+                firebaseApp = firebase.initializeApp(config);
+                console.log('✅ Firebase initialized');
+            } catch (e) {
+                console.warn('⚠️ Firebase init skipped:', e.message);
             }
         }
         
-        async function createUser() {
-            const timestamp = Date.now();
-            const referralCode = generateReferralCode(USER_ID);
-            const referredBy = params.get('ref') || null;
-            
-            USER_DATA = {
-                uid: USER_ID,
-                name: USER_NAME,
-                username: USER_NAME,
-                referral_code: referralCode,
-                referred_by: referredBy,
-                points: 0,
-                pending_points: 0,
-                total_earned: 0,
-                total_withdrawn: 0,
-                ad_views: 0,
-                tasks_completed: 0,
-                joined_at: timestamp,
-                last_active: timestamp,
-                is_banned: false,
-                daily_ad_completed: false,
-                last_ad_date: new Date().toDateString()
-            };
-            
-            await db.ref(`users/${USER_ID}`).set(USER_DATA);
-            
-            // Process referral
-            if (referredBy) {
-                processReferral(referredBy, USER_ID);
+        // ============= USER MANAGEMENT =============
+        function getUserId() {
+            // In production: Use Firebase Auth or proper session
+            let userId = localStorage.getItem('ums_user_id');
+            if (!userId) {
+                // Generate simple ID for demo (use proper auth in production)
+                userId = 'user_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('ums_user_id', userId);
             }
-            
-            showToast(`🎉 Welcome ${USER_NAME}! You've been registered.`, 'success');
+            return userId;
         }
         
-        function generateReferralCode(uid) {
-            return 'UMS' + uid.toString(36).toUpperCase().slice(-6);
-        }
-        
-        async function processReferral(refCode, newUserId) {
-            // Find referrer
-            const referrerSnap = await db.ref('users').orderByChild('referral_code').equalTo(refCode).once('value');
-            const referrerData = referrerSnap.val();
-            
-            if (referrerData) {
-                const referrerId = Object.keys(referrerData)[0];
-                const bonus = APP_CONFIG.REFERRAL_BONUS;
-                
-                await db.ref(`users/${referrerId}/points`).transaction(p => (p || 0) + bonus);
-                await db.ref(`users/${referrerId}/total_earned`).transaction(e => (e || 0) + bonus);
-                await db.ref(`users/${referrerId}/referral_count`).transaction(c => (c || 0) + 1);
-                await db.ref(`referrals/${referrerId}/${newUserId}`).set({
-                    joined_at: Date.now(),
-                    bonus: bonus
-                });
-            }
-        }
-        
-        function setupRealtimeListener() {
-            db.ref(`users/${USER_ID}`).on('value', snapshot => {
-                const data = snapshot.val();
-                if (data) {
-                    USER_DATA = { ...USER_DATA, ...data };
-                    AD_VIEW_COUNT = data.ad_views || 0;
-                    updateUI();
-                }
-            });
-        }
-        
-        async function updateUserPoints(points, type, description = '') {
-            const timestamp = Date.now();
-            const updates = {
-                [`users/${USER_ID}/points`]: (USER_DATA.points || 0) + points,
-                [`users/${USER_ID}/total_earned`]: (USER_DATA.total_earned || 0) + points,
-                [`users/${USER_ID}/tasks_completed`]: (USER_DATA.tasks_completed || 0) + 1,
-                [`users/${USER_ID}/last_active`]: timestamp,
-                [`users/${USER_ID}/history/${timestamp}`]: {
-                    points: points,
-                    type: type,
-                    description: description,
-                    timestamp: timestamp
-                }
-            };
-            
-            if (type === 'ad_view') {
-                updates[`users/${USER_ID}/ad_views`] = AD_VIEW_COUNT + 1;
-            }
-            
-            await db.ref().update(updates);
-            
-            // Save locally too
-            USER_DATA.points = (USER_DATA.points || 0) + points;
-            USER_DATA.total_earned = (USER_DATA.total_earned || 0) + points;
-            localStorage.setItem(`user_${USER_ID}`, JSON.stringify(USER_DATA));
-        }
-        
-        // ─────────────────────────────────────────────────────────────────────
-        // 🎨 UI Updates
-        // ─────────────────────────────────────────────────────────────────────
-        
-        function updateUI() {
-            const points = USER_DATA.points || 0;
-            const usd = (points / APP_CONFIG.POINTS_PER_DOLLAR).toFixed(2);
-            const progress = Math.min((AD_VIEW_COUNT / APP_CONFIG.DAILY_AD_LIMIT) * 100, 100);
-            
-            // Balance
-            document.getElementById('balanceDisplay').textContent = `$${usd}`;
-            document.getElementById('modalBalance').textContent = `$${usd}`;
-            
-            // Ad Tracker
-            document.getElementById('adViewedSmall').textContent = `${AD_VIEW_COUNT.toLocaleString()} / ${APP_CONFIG.DAILY_AD_LIMIT.toLocaleString()}`;
-            document.getElementById('adViewedBig').textContent = `${AD_VIEW_COUNT.toLocaleString()} / ${APP_CONFIG.DAILY_AD_LIMIT.toLocaleString()}`;
-            document.getElementById('progressFill').style.width = `${progress}%`;
-            
-            // Daily Ad Badge
-            const today = new Date().toDateString();
-            const lastAdDate = USER_DATA.last_ad_date || '';
-            const dailyCompleted = lastAdDate === today;
-            
-            document.getElementById('dailyAdBadge').textContent = dailyCompleted ? 'COMPLETED' : 'AVAILABLE';
-            document.getElementById('dailyAdBadge').className = dailyCompleted ? 'task-badge badge-completed' : 'task-badge badge-available';
-            
-            // Withdraw button
-            const withdrawBtn = document.getElementById('withdrawBtn');
-            withdrawBtn.disabled = points < APP_CONFIG.POINTS_PER_DOLLAR;
-            
-            // Referral stats
-            const refCount = USER_DATA.referral_count || 0;
-            const refPoints = refCount * APP_CONFIG.REFERRAL_BONUS;
-            document.getElementById('refCount').textContent = refCount;
-            document.getElementById('refEarnings').textContent = refPoints;
-            document.getElementById('dashRefCount').textContent = refCount;
-            document.getElementById('dashRefPoints').textContent = refPoints;
-            document.getElementById('dashTotalEarnings').textContent = `$${((USER_DATA.total_earned || 0) / APP_CONFIG.POINTS_PER_DOLLAR).toFixed(2)}`;
-            
-            // Referral link
-            const refLink = `https://t.me/UltimateMediaSearchBot?start=${USER_DATA.referral_code || generateReferralCode(USER_ID)}`;
-            document.getElementById('refLink').textContent = refLink;
-            
-            // Claimed social tasks
-            updateSocialUI();
-        }
-        
-        function updateSocialUI() {
-            ['youtube', 'instagram', 'facebook'].forEach(platform => {
-                if (CLAIMED_SOCIAL[platform]) {
-                    // Update badges if needed
-                }
-            });
-        }
-        
-        // ─────────────────────────────────────────────────────────────────────
-        // 📺 Ad Watching
-        // ─────────────────────────────────────────────────────────────────────
-        
-        async function watchDailyAd() {
-            const today = new Date().toDateString();
-            if (USER_DATA.last_ad_date === today) {
-                showToast('️ Daily ad already completed today!', 'info');
-                return;
-            }
-            
-            // Open ad link
-            window.open(APP_CONFIG.AD_LINK, '_blank');
-            
-            // 30 second timer
-            const btn = document.getElementById('dailyAdBtn');
-            btn.style.opacity = '0.6';
-            btn.disabled = true;
-            
-            let seconds = 30;
-            const label = btn.querySelector('.label');
-            const originalLabel = label.textContent;
-            
-            const timer = setInterval(() => {
-                seconds--;
-                label.textContent = `${seconds}s`;
-                
-                if (seconds <= 0) {
-                    clearInterval(timer);
-                    completeDailyAd();
-                }
-            }, 1000);
-        }
-        
-        async function completeDailyAd() {
-            const btn = document.getElementById('dailyAdBtn');
-            btn.style.opacity = '1';
-            btn.disabled = false;
-            btn.querySelector('.label').textContent = 'Daily Ad';
-            
+        async function loadUserData(userId) {
             try {
-                await db.ref(`users/${USER_ID}`).update({
-                    ad_views: (USER_DATA.ad_views || 0) + 1,
-                    points: (USER_DATA.points || 0) + APP_CONFIG.AD_POINTS,
-                    total_earned: (USER_DATA.total_earned || 0) + APP_CONFIG.AD_POINTS,
-                    last_ad_date: new Date().toDateString(),
-                    daily_ad_completed: true,
-                    last_active: Date.now()
-                });
+                showLoading('tasksGrid');
                 
-                AD_VIEW_COUNT = (USER_DATA.ad_views || 0) + 1;
-                USER_DATA.points = (USER_DATA.points || 0) + APP_CONFIG.AD_POINTS;
-                USER_DATA.total_earned = (USER_DATA.total_earned || 0) + APP_CONFIG.AD_POINTS;
-                USER_DATA.last_ad_date = new Date().toDateString();
-                USER_DATA.daily_ad_completed = true;
+                const response = await fetch(`${API_BASE}/api/user/${userId}`);
+                const data = await response.json();
                 
-                updateUI();
-                showToast(`🎉 +${APP_CONFIG.AD_POINTS} Points! Ad completed.`, 'success');
-                triggerConfetti();
+                if (data.error) {
+                    throw new Error(data.error);
+                }
                 
-            } catch (err) {
-                console.error('Ad complete error:', err);
-                showToast('❌ Failed to claim points', 'error');
-            }
-        }
-        
-        function openOfferwall() {
-            window.open(APP_CONFIG.AD_LINK, '_blank');
-            showToast('💎 Offerwall opened in new tab!', 'info');
-        }
-        
-        // ─────────────────────────────────────────────────────────────────────
-        // 📱 Social Tasks
-        // ─────────────────────────────────────────────────────────────────────
-        
-        async function claimSocialTask(platform) {
-            if (CLAIMED_SOCIAL[platform]) {
-                showToast('✅ Already claimed!', 'info');
-                return;
-            }
-            
-            CLAIMED_SOCIAL[platform] = true;
-            localStorage.setItem(`claimed_${USER_ID}`, JSON.stringify(CLAIMED_SOCIAL));
-            
-            try {
-                await db.ref(`users/${USER_ID}`).update({
-                    points: (USER_DATA.points || 0) + APP_CONFIG.SOCIAL_POINTS,
-                    total_earned: (USER_DATA.total_earned || 0) + APP_CONFIG.SOCIAL_POINTS,
-                    tasks_completed: (USER_DATA.tasks_completed || 0) + 1,
-                    [`social_tasks/${platform}`]: {
-                        completed: true,
-                        completed_at: Date.now()
-                    }
-                });
+                currentUser = data;
+                updateUI(data);
+                renderTasks(data);
                 
-                USER_DATA.points = (USER_DATA.points || 0) + APP_CONFIG.SOCIAL_POINTS;
-                USER_DATA.total_earned = (USER_DATA.total_earned || 0) + APP_CONFIG.SOCIAL_POINTS;
-                
-                updateUI();
-                showToast(`🎉 +${APP_CONFIG.SOCIAL_POINTS} Points! ${platform} task completed!`, 'success');
-                triggerConfetti();
-                
-            } catch (err) {
-                console.error('Social task error:', err);
-                showToast('✅ Task recorded! Points will be added.', 'success');
-            }
-        }
-        
-        // ─────────────────────────────────────────────────────────────────────
-        // 💰 Withdrawal
-        // ─────────────────────────────────────────────────────────────────────
-        
-        function openWithdrawModal() {
-            const points = USER_DATA.points || 0;
-            if (points < APP_CONFIG.POINTS_PER_DOLLAR) {
-                showToast('💰 Need 100 points ($1.00) to withdraw!', 'error');
-                return;
-            }
-            document.getElementById('withdrawModal').classList.add('active');
-        }
-        
-        function closeWithdrawModal() {
-            document.getElementById('withdrawModal').classList.remove('active');
-        }
-        
-        async function submitWithdraw() {
-            const method = document.getElementById('withdrawMethod').value;
-            const address = document.getElementById('withdrawAddress').value.trim();
-            
-            if (!method) {
-                showToast('⚠️ Select payment method', 'error');
-                return;
-            }
-            if (!address) {
-                showToast('⚠️ Enter payment details', 'error');
-                return;
-            }
-            
-            const points = USER_DATA.points || 0;
-            
-            try {
-                await db.ref(`withdrawals/${USER_ID}/${Date.now()}`).set({
-                    amount: points,
-                    usd: (points / APP_CONFIG.POINTS_PER_DOLLAR).toFixed(2),
-                    method: method,
-                    address: address,
-                    status: 'pending',
-                    requested_at: Date.now()
-                });
-                
-                await db.ref(`users/${USER_ID}`).update({
+            } catch (error) {
+                console.error('Load user error:', error);
+                showToast('Failed to load user data', 'error');
+                // Fallback UI
+                updateUI({
+                    user_id: userId,
+                    username: 'User',
                     points: 0,
-                    total_withdrawn: (USER_DATA.total_withdrawn || 0) + points,
-                    pending_withdrawal: true
+                    plan: 'Free',
+                    tasks_completed: [],
+                    messages: []
                 });
-                
-                USER_DATA.points = 0;
-                USER_DATA.total_withdrawn = (USER_DATA.total_withdrawn || 0) + points;
-                
-                closeWithdrawModal();
-                updateUI();
-                showToast('✅ Withdrawal request submitted! Processing in 24-48h', 'success');
-                triggerConfetti();
-                
-            } catch (err) {
-                console.error('Withdrawal error:', err);
-                showToast('❌ Failed to submit request', 'error');
             }
         }
         
-        // ─────────────────────────────────────────────────────────────────────
-        // 👥 Referral
-        // ─────────────────────────────────────────────────────────────────────
-        
-        function showReferralModal() {
-            document.getElementById('referralModal').classList.add('active');
+        function updateUI(user) {
+            // Update balance
+            document.getElementById('balanceDisplay').textContent = user.points.toLocaleString();
+            document.getElementById('profilePoints').textContent = user.points.toLocaleString();
+            
+            // Update plan badge
+            const planBadge = document.getElementById('planBadge');
+            const planName = document.getElementById('planName');
+            const planIcon = document.getElementById('planIcon');
+            
+            planName.textContent = user.plan;
+            document.getElementById('profilePlan').textContent = user.plan;
+            
+            // Set plan styling
+            planBadge.className = 'plan-badge';
+            if (user.plan === 'Free') {
+                planBadge.classList.add('plan-free');
+                planIcon.textContent = '🆓';
+            } else if (user.plan === 'Earner Pro') {
+                planBadge.classList.add('plan-pro');
+                planIcon.textContent = '🥈';
+            } else if (user.plan === 'Influencer Pro') {
+                planBadge.classList.add('plan-influencer');
+                planIcon.textContent = '🥇';
+            }
+            
+            // Update avatar
+            const initial = (user.username || 'U').charAt(0).toUpperCase();
+            document.getElementById('userAvatar').textContent = initial;
+            
+            // Update stats
+            document.getElementById('totalEarned').textContent = 
+                (user.points + (user.tasks_completed?.length * 100) || 0).toLocaleString();
+            document.getElementById('tasksDone').textContent = user.tasks_completed?.length || 0;
+            document.getElementById('aiMessages').textContent = 
+                Math.floor((user.messages?.filter(m => m.role === 'user').length || 0) / 2);
+            
+            // Update member since
+            if (user.joined_at) {
+                const date = new Date(user.joined_at * 1000);
+                document.getElementById('memberSince').textContent = 
+                    date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+            }
+            
+            // Update progress bar
+            const dailyLimit = user.plans?.[user.plan]?.daily_task_limit || 3;
+            const completed = user.tasks_completed?.filter(t => 
+                ['youtube', 'instagram', 'facebook'].includes(t)
+            ).length || 0;
+            const progress = dailyLimit > 0 
+                ? Math.min(100, Math.round((completed / dailyLimit) * 100)) 
+                : (completed > 0 ? 100 : 0);
+            
+            document.getElementById('progressFill').style.width = `${progress}%`;
+            document.getElementById('progressPercent').textContent = `${progress}%`;
+            document.getElementById('progressText').textContent = 
+                `${completed} of ${dailyLimit > 0 ? dailyLimit : '∞'} tasks completed`;
+            
+            // Update AI cost notice
+            const aiCost = user.plans?.[user.plan]?.ai_cost || 10;
+            const notice = document.getElementById('aiCostNotice');
+            if (user.plan === 'Free') {
+                notice.innerHTML = `💡 Free users: <b>${aiCost} points</b> per message • Pro: Unlimited`;
+                notice.style.display = 'block';
+            } else {
+                notice.style.display = 'none';
+            }
         }
         
-        function closeReferralModal() {
-            document.getElementById('referralModal').classList.remove('active');
+        // ============= TASKS RENDERING =============
+        function renderTasks(user) {
+            const grid = document.getElementById('tasksGrid');
+            const tasks = user.tasks_available || {
+                youtube: {name: 'YouTube', handle: '@USSoccerPulse', points: 100, url: '#', icon: '▶️'},
+                instagram: {name: 'Instagram', handle: '@digital_rockstar_m', points: 100, url: '#', icon: '📸'},
+                facebook: {name: 'Facebook', handle: 'UltimateMediaSearch', points: 100, url: '#', icon: '📘'}
+            };
+            
+            const completed = user.tasks_completed || [];
+            
+            grid.innerHTML = Object.entries(tasks).map(([id, task]) => {
+                const isCompleted = completed.includes(id);
+                return `
+                    <div class="glass-card task-card">
+                        <div class="task-icon ${id}">${task.icon}</div>
+                        <div class="task-details">
+                            <div class="task-name">${task.name}</div>
+                            <div class="task-handle">${task.handle}</div>
+                            <div class="task-points">+${task.points} points</div>
+                        </div>
+                        <div class="task-action">
+                            <a href="${task.url}" target="_blank" rel="noopener" class="visit-btn">Visit →</a>
+                            <button class="complete-btn" 
+                                    onclick="completeTask('${id}')"
+                                    ${isCompleted ? 'disabled' : ''}>
+                                ${isCompleted ? '✅ Done' : 'Complete'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
         
-        function copyRefLink() {
-            const link = document.getElementById('refLink').textContent;
-            navigator.clipboard.writeText(link).then(() => {
-                showToast('🔗 Referral link copied!', 'success');
+        async function completeTask(taskId) {
+            if (!currentUser) return;
+            
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '⏳...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/tasks/complete`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: currentUser.user_id,
+                        task_id: taskId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast(`🎉 +${result.points_earned} points!`, 'success');
+                    
+                    // Update local state
+                    currentUser.points = result.new_balance;
+                    if (!currentUser.tasks_completed) currentUser.tasks_completed = [];
+                    currentUser.tasks_completed.push(taskId);
+                    
+                    // Refresh UI
+                    updateUI(currentUser);
+                    renderTasks(currentUser);
+                } else {
+                    showToast(result.message || 'Task already completed', 'warning');
+                }
+            } catch (error) {
+                console.error('Complete task error:', error);
+                showToast('Failed to complete task', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+        
+        // ============= AI CHAT =============
+        function setupChatInput() {
+            const input = document.getElementById('chatInput');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            // Auto-resize textarea
+            input.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+                sendBtn.disabled = !this.value.trim();
+            });
+            
+            // Send on Enter (Shift+Enter for newline)
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (input.value.trim()) sendAIMessage();
+                }
+            });
+            
+            // Initial state
+            sendBtn.disabled = true;
+        }
+        
+        async function sendAIMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message || !currentUser) return;
+            
+            // Add user message to UI
+            addChatMessage(message, 'user');
+            input.value = '';
+            input.style.height = 'auto';
+            document.getElementById('sendBtn').disabled = true;
+            
+            // Show typing indicator
+            const typingId = addChatMessage('🤖 Thinking...', 'assistant', true);
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/ai/chat`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: currentUser.user_id,
+                        message: message
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // Remove typing indicator
+                document.getElementById(typingId)?.remove();
+                
+                if (result.success) {
+                    addChatMessage(result.response, 'assistant');
+                    
+                    // Update balance if points were deducted
+                    if (result.cost > 0 && result.balance !== undefined) {
+                        currentUser.points = result.balance;
+                        document.getElementById('balanceDisplay').textContent = 
+                            result.balance.toLocaleString();
+                        document.getElementById('profilePoints').textContent = 
+                            result.balance.toLocaleString();
+                    }
+                } else {
+                    addChatMessage(result.response || '❌ Failed to get response', 'assistant', true);
+                    
+                    // Refund points if failed
+                    if (result.cost > 0 && currentUser) {
+                        currentUser.points += result.cost;
+                        updateUI(currentUser);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('AI chat error:', error);
+                document.getElementById(typingId)?.remove();
+                addChatMessage('❌ Connection error. Please try again.', 'assistant', true);
+            }
+        }
+        
+        function addChatMessage(content, role, isError = false) {
+            const container = document.getElementById('chatMessages');
+            const id = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            const time = new Date().toLocaleTimeString('en-IN', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            const message = document.createElement('div');
+            message.className = `message ${role}${isError ? ' error' : ''}`;
+            message.id = id;
+            message.innerHTML = `
+                ${content.replace(/\n/g, '<br>')}
+                <div class="message-time">${time}</div>
+            `;
+            
+            container.appendChild(message);
+            container.scrollTop = container.scrollHeight;
+            
+            return id;
+        }
+        
+        // ============= PAYMENT SUBMISSION =============
+        function updatePaymentAmount() {
+            // Could update UI based on selected plan
+        }
+        
+        async function submitPayment() {
+            const txnId = document.getElementById('txnId').value.trim();
+            const amount = document.getElementById('planSelect').value;
+            const plan = document.getElementById('planSelect').options[
+                document.getElementById('planSelect').selectedIndex
+            ].text.split(' - ')[0].trim();
+            
+            if (!txnId || !currentUser) {
+                showToast('Please enter transaction ID', 'warning');
+                return;
+            }
+            
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '⏳ Submitting...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/payment/submit`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        user_id: currentUser.user_id,
+                        txn_id: txnId,
+                        amount: parseInt(amount),
+                        plan: plan.includes('Earner') ? 'Earner Pro' : 'Influencer Pro'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('✅ Payment submitted! Awaiting approval', 'success');
+                    document.getElementById('txnId').value = '';
+                } else {
+                    showToast(result.error || 'Submission failed', 'error');
+                }
+            } catch (error) {
+                console.error('Payment submit error:', error);
+                showToast('Network error. Please try again.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+        
+        // ============= TAB NAVIGATION =============
+        function setupTabs() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tabId = btn.dataset.tab;
+                    switchTab(tabId);
+                });
+            });
+        }
+        
+        function switchTab(tabId) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tabId);
+                btn.setAttribute('aria-selected', btn.dataset.tab === tabId);
+            });
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.toggle('active', content.id === tabId);
+            });
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        // ============= UTILITIES =============
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            
+            container.appendChild(toast);
+            
+            // Auto-remove after animation
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function showLoading(elementId) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <div>Loading...</div>
+                    </div>
+                `;
+            }
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('📋 UPI ID copied!', 'success');
             }).catch(() => {
                 // Fallback
-                const input = document.createElement('input');
-                input.value = link;
-                document.body.appendChild(input);
-                input.select();
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
                 document.execCommand('copy');
-                document.body.removeChild(input);
-                showToast('🔗 Referral link copied!', 'success');
+                document.body.removeChild(textarea);
+                showToast('📋 Copied!', 'success');
             });
         }
         
-        function shareReferral() {
-            const link = document.getElementById('refLink').textContent;
-            const text = `🎁 Join me on Ultimate Media Search! Earn money by watching ads and completing simple tasks. Use my link: ${link}`;
-            
-            if (tg) {
-                tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
-            } else {
-                window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`, '_blank');
-            }
-        }
-        
-        // ─────────────────────────────────────────────────────────────────────
-        // 🎨 UI Helpers
-        // ─────────────────────────────────────────────────────────────────────
-        
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            const icon = document.getElementById('toastIcon');
-            const msg = document.getElementById('toastMsg');
-            
-            const icons = { success: '✅', error: '❌', info: 'ℹ️' };
-            icon.textContent = icons[type] || '✅';
-            msg.textContent = message;
-            
-            toast.className = `toast ${type} show`;
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3500);
-        }
-        
-        function refreshData() {
-            showToast('🔄 Refreshing data...', 'info');
-            loadUserData().then(() => {
-                showToast('✅ Data refreshed!', 'success');
-            });
-        }
-        
-        function switchTab(tab) {
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.classList.toggle('active', item.textContent.trim().toLowerCase().includes(tab));
-            });
-            
-            if (tg?.HapticFeedback) {
-                tg.HapticFeedback.impactOccurred('light');
-            }
-        }
-        
-        function createParticles() {
-            const container = document.getElementById('particles');
-            for (let i = 0; i < 20; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDuration = (Math.random() * 10 + 8) + 's';
-                particle.style.animationDelay = (Math.random() * 10) + 's';
-                particle.style.width = (Math.random() * 6 + 3) + 'px';
-                particle.style.height = particle.style.width;
-                container.appendChild(particle);
-            }
-        }
-        
-        function triggerConfetti() {
-            const colors = ['#f59e0b', '#d97706', '#92400e', '#22c55e', '#3b82f6', '#ef4444'];
-            
-            for (let i = 0; i < 30; i++) {
-                const confetti = document.createElement('div');
-                confetti.className = 'confetti-piece';
-                confetti.style.left = Math.random() * 100 + 'vw';
-                confetti.style.top = '-10px';
-                confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-                confetti.style.width = (Math.random() * 8 + 4) + 'px';
-                confetti.style.height = (Math.random() * 8 + 4) + 'px';
-                
-                document.body.appendChild(confetti);
-                
-                const duration = Math.random() * 2000 + 1500;
-                const xDrift = (Math.random() - 0.5) * 200;
-                
-                confetti.animate([
-                    { transform: `translateY(0) translateX(0) rotate(0deg)`, opacity: 1 },
-                    { transform: `translateY(100vh) translateX(${xDrift}px) rotate(${Math.random() * 720}deg)`, opacity: 0 }
-                ], {
-                    duration: duration,
-                    easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-                }).onfinish = () => confetti.remove();
-            }
-        }
-        
-        // Close modals on backdrop click
-        document.querySelectorAll('.modal-overlay').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                }
-            });
-        });
+        // Expose functions globally for inline handlers
+        window.completeTask = completeTask;
+        window.sendAIMessage = sendAIMessage;
+        window.submitPayment = submitPayment;
+        window.switchTab = switchTab;
+        window.copyToClipboard = copyToClipboard;
     </script>
 </body>
 </html>
-
