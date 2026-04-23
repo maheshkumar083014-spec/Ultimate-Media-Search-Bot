@@ -1,18 +1,32 @@
+
+```json
 {
   "version": 2,
+```json
+{
+  "version": 2  "builds": [
+    {
+,
   "builds": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python"
+      "      "src": "index.py",
+src": "index.py",
+      "use":      "use": "@vercel/python "@vercel/python"
+   "
     }
+  ],
+  }
   ],
   "routes": [
+ "routes": [
     {
-      "src": "/(.*)",
-      "dest": "api/index.py"
+    {
+      "      "src":src": "/( "/(.*)",
+.*)",
+      "      "dest":dest": "index "index.py"
+.py"
     }
-  ],
-  "env": {
-    "FLASK_ENV": "production"
-  }
+  ]
+    }
+  ]
 }
