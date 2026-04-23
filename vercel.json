@@ -1,17 +1,10 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    }
-  ],
+  "builds": [{ "src": "api/index.py", "use": "@vercel/python" }],
   "rewrites": [
-    { "source": "/api/index", "destination": "/api/index.py" },
     { "source": "/dashboard", "destination": "/api/index.py" },
-    { "source": "/api/user/(.*)", "destination": "/api/index.py" },
-    { "source": "/api/tasks/complete", "destination": "/api/index.py" },
-    { "source": "/api/ai/chat", "destination": "/api/index.py" },
+    { "source": "/admin", "destination": "/api/index.py" },
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/(.*)", "destination": "/api/index.py" }
   ]
 }
