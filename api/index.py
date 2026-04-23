@@ -6,13 +6,18 @@ import firebase_admin
 from firebase_admin import credentials, db
 from openai import OpenAI
 
+# --- PATH CONFIGURATION (ROOT FIX) ---
+# Ye logic Vercel ke dynamic root path ko handle karega
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+template_path = os.path.join(base_dir, 'templates')
+
 # --- CONFIGURATION ---
 BOT_TOKEN = "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw"
 FB_URL = "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/"
 DEEPSEEK_KEY = "sk-783d645ce9e84eb8b954786a016561ea"
 
-# Flask initialization with template path fix for Vercel
-app = Flask(__name__, template_folder='../templates')
+# Flask initialization with absolute template path
+app = Flask(__name__, template_folder=template_path)
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 ai_client = OpenAI(api_key=DEEPSEEK_KEY, base_url="https://api.deepseek.com")
 
@@ -27,9 +32,10 @@ if not firebase_admin._apps:
         except Exception as e:
             print(f"Firebase Init Error: {e}")
     else:
-        # Local testing ke liye
         try:
-            cred = credentials.Certificate("serviceAccountKey.json")
+            # Local environment ke liye path
+            local_cred_path = os.path.join(base_dir, "serviceAccountKey.json")
+            cred = credentials.Certificate(local_cred_path)
             firebase_admin.initialize_app(cred, {'databaseURL': FB_URL})
         except:
             print("Warning: No Firebase config found!")
@@ -50,10 +56,9 @@ def send_welcome(message):
     caption = (f"🚀 *Welcome, {name}!*\n\n"
                f"💰 *Balance:* {user_data.get('points', 0)} Points\n"
                f"🏆 *Plan:* {user_data.get('plan', 'Free')}\n\n"
-               "Daily tasks complete karein aur points earn karein!")
+               "Earn points and chat with AI!")
     
     markup = telebot.types.InlineKeyboardMarkup()
-    # Dynamic URL detection
     dashboard_url = f"https://{request.host}/dashboard"
     markup.row(telebot.types.InlineKeyboardButton("🚀 Open Dashboard", url=dashboard_url))
     markup.add(telebot.types.InlineKeyboardButton("💎 Upgrade", callback_data="up"),
@@ -64,7 +69,7 @@ def send_welcome(message):
                    caption=caption, parse_mode="Markdown", reply_markup=markup)
 
 @bot.message_handler(func=lambda m: True)
-def handle_ai_messages(message):
+def handle_ai(message):
     user_id = str(message.from_user.id)
     user_ref = db.reference(f'users/{user_id}')
     user = user_ref.get()
@@ -73,7 +78,7 @@ def handle_ai_messages(message):
 
     if user.get('plan') == "Free":
         if user.get('points', 0) < 10:
-            bot.reply_to(message, "❌ Points khatam! Task karein.")
+            bot.reply_to(message, "❌ Insufficient points!")
             return
         user_ref.update({"points": user['points'] - 10})
 
@@ -84,7 +89,7 @@ def handle_ai_messages(message):
         )
         bot.reply_to(message, response.choices[0].message.content)
     except:
-        bot.reply_to(message, "⚠️ AI Busy hai.")
+        bot.reply_to(message, "⚠️ AI Service busy.")
 
 # --- WEB ROUTES ---
 @app.route('/api/index', methods=['POST'])
@@ -104,8 +109,7 @@ def index():
 def dashboard():
     try:
         return render_template('dashboard.html')
-    except:
-        return "Dashboard file (dashboard.html) not found in templates folder."
+    except Exception as e:
+        return f"Error: dashboard.html not found. Path: {template_path}"
 
-# Vercel app export
 app = app
