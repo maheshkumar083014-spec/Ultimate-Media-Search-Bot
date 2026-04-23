@@ -1,39 +1,9 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "runtime": "python3.9",
-        "maxDuration": 60
-      }
-    }
+    { "src": "index.py", "use": "@vercel/python" }
   ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/dashboard",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/admin",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/health",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/",
-      "dest": "api/index.py"
-    }
-  ],
-  "env": {
-    "PYTHONPATH": ".",
-    "FLASK_ENV": "production"
-  }
+    { "src": "/(.*)", "dest": "index.py" }
+  ]
 }
