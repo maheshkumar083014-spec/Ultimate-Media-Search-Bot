@@ -8,40 +8,11 @@
   ],
   "routes": [
     {
-      "src": "/static/(.*)",
-      "dest": "/static/$1"
-    },
-    {
-      "src": "/templates/(.*)",
-      "dest": "/templates/$1"
-    },
-    {
-      "src": "/webhook",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/dashboard",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/admin",
-      "dest": "api/index.py"
-    },
-    {
       "src": "/(.*)",
       "dest": "api/index.py"
     }
   ],
   "env": {
-    "FLASK_ENV": "production",
-    "BOT_TOKEN": "8701635891:AAFYh5tUdnHknFkXJhu06-K1QevJMz3P2sw",
-    "FIREBASE_DATABASE_URL": "https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/",
-    "DEEPSEEK_API_KEY": "sk-783d645ce9e84eb8b954786a016561ea",
-    "ADMIN_TELEGRAM_ID": "YOUR_ADMIN_TELEGRAM_ID_HERE",
-    "UPI_ID": "8543083014@ikwik"
+    "FLASK_ENV": "production"
   }
 }
