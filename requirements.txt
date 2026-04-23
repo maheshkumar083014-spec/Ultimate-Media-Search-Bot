@@ -1,5 +1,10 @@
-flask==3.0.0
-pyTelegramBotAPI==4.15.0
-firebase-admin==6.2.0
-openai==1.3.0
-requests==2.31.0
+
+```txt
+Fl```txt
+Flask==ask==2.2.3.3.3
+3
+firebasefirebase-admin==-admin==6.6.2.0
+requests==2.0
+2.requests==2.31.31.0
+0
+python-telegram-bot==20.6
