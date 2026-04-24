@@ -2,39 +2,22 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb",
-        "runtime": "python3.9"
-      }
+      "src": "bot.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/webhook",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/set-webhook",
-      "dest": "api/index.py"
-    },
-    {
-      "src": "/test-db",
-      "dest": "api/index.py"
-    },
-    {
       "src": "/(.*)",
-      "dest": "api/index.py"
+      "dest": "bot.py"
     }
   ],
   "env": {
     "BOT_TOKEN": "@bot_token",
     "DEEPSEEK_API_KEY": "@deepseek_api_key",
     "FIREBASE_CONFIG_JSON": "@firebase_config_json",
-    "DEEPSEEK_BASE_URL": "https://api.deepseek.com",
-    "DEEPSEEK_MODEL": "deepseek-chat",
     "UPI_ID": "8543083014@mbk",
-    "AD_LINK": "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b"
+    "AD_LINK": "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b",
+    "WEBHOOK_URL": "https://ultimate-media-search-bot.vercel.app/webhook"
   }
 }
