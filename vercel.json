@@ -1,13 +1,36 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/index.py", "use": "@vercel/python" }
+    {
+      "src": "index.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    }
   ],
   "routes": [
-    { "src": "/", "dest": "api/index.py" }, 
-    { "src": "/api/index", "dest": "api/index.py" },
-    { "src": "/api/set_webhook", "dest": "api/index.py" },
-    { "src": "/api/chat", "dest": "api/index.py" },
-    { "src": "/dashboard", "dest": "/templates/dashboard.html" }
-  ]
+    {
+      "src": "/api/index",
+      "methods": ["POST", "GET"],
+      "dest": "index.py"
+    },
+    {
+      "src": "/webhook",
+      "methods": ["POST", "GET"],
+      "dest": "index.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "index.py"
+    }
+  ],
+  "env": {
+    "BOT_TOKEN": "@bot_token",
+    "DEEPSEEK_API_KEY": "@deepseek_key",
+    "FIREBASE_PRIVATE_KEY": "@fb_private_key",
+    "FIREBASE_CLIENT_EMAIL": "@fb_client_email",
+    "UPI_ID": "8543083014@mbk",
+    "AD_LINK": "@ad_link"
+  }
 }
