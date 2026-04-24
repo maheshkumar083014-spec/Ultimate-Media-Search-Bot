@@ -1,181 +1,244 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-UltimateMediaSearchBot - Vercel Serverless Function
-Location: api/index.py
-"""
-
 import os
 import json
 import logging
-from datetime import datetime, timedelta
 import requests
 import firebase_admin
 from firebase_admin import credentials, db
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify
 import telebot
 from telebot import types
+from datetime import datetime, timedelta
 
-# Configuration
-BOT_TOKEN = os.getenv('BOT_TOKEN', '')
-DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', '')
+# Configuration from Environment Variables
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY', 'sk-783d645ce9e84eb8b954786a016561ea')
 DEEPSEEK_BASE_URL = os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
 DEEPSEEK_MODEL = os.getenv('DEEPSEEK_MODEL', 'deepseek-chat')
 UPI_ID = os.getenv('UPI_ID', '8543083014@mbk')
 AD_LINK = os.getenv('AD_LINK', 'https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b')
+
+# Social Media
 YOUTUBE_CHANNEL = '@USSoccerPulse'
 INSTAGRAM_HANDLE = '@digital_rockstar_m'
-WELCOME_PHOTO = "https://i.ibb.co/h1m0cc1W/6a74f155-a6b7-499f-ad34-c1a3989433e0.jpg"
-ADMIN_ID = os.getenv('ADMIN_ID', '')
 
-# Logging setup
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Initialize Flask and Bot
+app = Flask(__name__)
+bot = telebot.TeleBot(BOT_TOKEN, parse_mode='HTML')
+
+# Logging Setup
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# Flask App
-app = Flask(__name__)
+# ==================== FIREBASE INITIALIZATION ====================
 
-# Firebase Initialization
 firebase_db = None
-firebase_initialized = False
 
-def init_firebase():
-    global firebase_db, firebase_initialized
-    if firebase_initialized:
-        return True
+try:
+    # Method 1: Try FIREBASE_CONFIG_JSON (Recommended)
+    firebase_config_json = os.getenv('FIREBASE_CONFIG_JSON')
     
-    try:
-        logger.info("🔄 Initializing Firebase...")
+    if firebase_config_json:
+        logger.info("📄 Using FIREBASE_CONFIG_JSON...")
+        firebase_config = json.loads(firebase_config_json)
+        cred = credentials.Certificate(firebase_config)
+    else:
+        # Method 2: Try individual variables
+        logger.info("📄 Using individual Firebase env variables...")
+        private_key = os.getenv('FIREBASE_PRIVATE_KEY', '')
         
-        firebase_config_json = os.getenv('FIREBASE_CONFIG_JSON')
+        # Fix newlines in private key
+        if private_key and '\\n' in private_key:
+            private_key = private_key.replace('\\n', '\n')
         
-        if not firebase_config_json:
-            logger.error("❌ FIREBASE_CONFIG_JSON not set!")
-            return False
-        
-        config = json.loads(firebase_config_json)
-        cred = credentials.Certificate(config)
-        
-        project_id = config.get('project_id', 'ultimatemediasearch')
-        firebase_admin.initialize_app(cred, {
-            'databaseURL': f"https://{project_id}-default-rtdb.firebaseio.com/"
+        cred = credentials.Certificate({
+            "type": "service_account",
+            "project_id": os.getenv('FIREBASE_PROJECT_ID', 'earn-bot-2026'),
+            "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID'),
+            "private_key": private_key,
+            "client_email": os.getenv('FIREBASE_CLIENT_EMAIL'),
+            "client_id": os.getenv('FIREBASE_CLIENT_ID'),
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_X509_CERT_URL')
         })
-        
-        firebase_db = db.reference()
-        firebase_initialized = True
-        logger.info(f"✅ Firebase initialized: {project_id}")
-        return True
-        
+    
+    # Initialize Firebase Admin
+    firebase_config_dict = cred.credential if hasattr(cred, 'credential') else {}
+    database_url = firebase_config_dict.get('databaseURL', os.getenv('FIREBASE_DATABASE_URL', 'https://earn-bot-2026-default-rtdb.firebaseio.com/'))
+    
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': database_url
+    })
+    
+    firebase_db = db.reference()
+    logger.info("✅ Firebase initialized successfully!")
+    
+except Exception as e:
+    logger.error(f"❌ Firebase initialization error: {e}")
+    logger.error(f"Error type: {type(e).__name__}")
+    import traceback
+    logger.error(traceback.format_exc())
+    firebase_db = None
+
+# ==================== HELPER FUNCTIONS ====================
+
+def get_user_data(user_id):
+    """Fetch user data from Firebase"""
+    if not firebase_db:
+        return None
+    try:
+        user_ref = firebase_db.child('users').child(str(user_id))
+        return user_ref.get()
     except Exception as e:
-        logger.error(f"❌ Firebase error: {e}")
-        return False
-
-# Initialize Firebase
-init_firebase()
-
-# Telegram Bot
-bot = telebot.TeleBot(BOT_TOKEN, parse_mode='HTML', threaded=False)
-
-# ==================== DATABASE FUNCTIONS ====================
-
-def get_user(uid):
-    if not firebase_db:
-        return None
-    try:
-        return firebase_db.child('users').child(str(uid)).get()
-    except:
+        logger.error(f"Error fetching user data: {e}")
         return None
 
-def update_user(uid, data):
+def update_user_data(user_id, data):
+    """Update user data in Firebase"""
     if not firebase_db:
         return False
     try:
-        firebase_db.child('users').child(str(uid)).update(data)
+        user_ref = firebase_db.child('users').child(str(user_id))
+        user_ref.update(data)
         return True
-    except:
+    except Exception as e:
+        logger.error(f"Error updating user data: {e}")
         return False
 
-def create_user(uid, username, fname, ref=None):
+def create_user(user_id, username, first_name, referrer_id=None):
+    """Create new user in database"""
     if not firebase_db:
         return False
-    user = {
-        'user_id': uid,
+    
+    user_data = {
+        'user_id': user_id,
         'username': username,
-        'first_name': fname,
+        'first_name': first_name,
         'balance': 0,
         'plan': 'free',
         'joined_date': datetime.now().isoformat(),
         'total_earned': 0,
         'tasks_completed': 0,
         'referrals': [],
-        'referrer_id': ref,
+        'referrer_id': referrer_id,
         'verified_youtube': False,
         'verified_instagram': False,
         'last_task_time': None,
-        'completed_tasks': [],
-        'submitted_tasks': []
+        'submitted_tasks': [],
+        'completed_tasks': []
     }
+    
     try:
-        firebase_db.child('users').child(str(uid)).set(user)
-        if ref and ref != uid:
-            ref_data = firebase_db.child('users').child(str(ref)).get()
-            if ref_data:
-                refs = ref_data.get('referrals', [])
-                if uid not in refs:
-                    refs.append(uid)
-                    firebase_db.child('users').child(str(ref)).update({'referrals': refs})
+        user_ref = firebase_db.child('users').child(str(user_id))
+        user_ref.set(user_data)
+        
+        # Add to referrer's list
+        if referrer_id:
+            referrer_ref = firebase_db.child('users').child(str(referrer_id))
+            referrer_data = referrer_ref.get()
+            if referrer_data:
+                referrals = referrer_data.get('referrals', [])
+                if user_id not in referrals:
+                    referrals.append(user_id)
+                    referrer_ref.update({'referrals': referrals})
+        
+        logger.info(f"✅ User {user_id} created successfully")
         return True
-    except:
+    except Exception as e:
+        logger.error(f"Error creating user: {e}")
         return False
 
-def add_balance(uid, amount, task_id=None):
-    user = get_user(uid)
-    if not user:
+def add_balance(user_id, amount, task_id=None):
+    """Add balance to user and give commission to referrer"""
+    user_data = get_user_data(user_id)
+    if not user_data:
         return False
-    mult = 2 if user.get('plan') == 'pro' else 1
-    final = amount * mult
-    new_bal = user.get('balance', 0) + final
-    new_total = user.get('total_earned', 0) + final
-    new_tasks = user.get('tasks_completed', 0) + 1
-    update_user(uid, {
-        'balance': new_bal,
-        'total_earned': new_total,
-        'tasks_completed': new_tasks,
+    
+    # Double rewards for PRO users
+    multiplier = 2 if user_data.get('plan') == 'pro' else 1
+    final_amount = amount * multiplier
+    
+    # Update user
+    new_balance = user_data.get('balance', 0) + final_amount
+    new_total_earned = user_data.get('total_earned', 0) + final_amount
+    new_tasks_completed = user_data.get('tasks_completed', 0) + 1
+    
+    update_user_data(user_id, {
+        'balance': new_balance,
+        'total_earned': new_total_earned,
+        'tasks_completed': new_tasks_completed,
         'last_task_time': datetime.now().isoformat()
     })
-    # Referral
-    ref_id = user.get('referrer_id')
-    if ref_id:
-        ref = get_user(ref_id)
-        if ref:
-            comm = final * 0.10
+    
+    # Give 10% commission to referrer
+    referrer_id = user_data.get('referrer_id')
+    if referrer_id:
+        referrer_data = get_user_data(referrer_id)
+        if referrer_data:
+            commission = final_amount * 0.10
+            referrer_balance = referrer_data.get('balance', 0) + commission
+            referrer_total = referrer_data.get('total_earned', 0) + commission
+            
+            update_user_data(referrer_id, {
+                'balance': referrer_balance,
+                'total_earned': referrer_total
+            })
+            
+            # Notify referrer
             try:
-                firebase_db.child('users').child(str(ref_id)).update({
-                    'balance': ref.get('balance', 0) + comm,
-                    'total_earned': ref.get('total_earned', 0) + comm
-                })
+                bot.send_message(
+                    referrer_id,
+                    f"🎉 <b>Referral Commission!</b>\n\n"
+                    f"Your referral completed a task.\n"
+                    f"💰 You earned: ₹{commission:.2f}\n"
+                    f"📊 New Balance: ₹{referrer_balance:.2f}",
+                    parse_mode='HTML'
+                )
             except:
                 pass
+    
     return True
 
-# ==================== DEEPSEEK ====================
-
-def query_deepseek(messages):
+async def query_deepseek(messages):
+    """Query DeepSeek AI"""
     try:
-        headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {DEEPSEEK_API_KEY}'}
-        payload = {'model': DEEPSEEK_MODEL, 'messages': messages, 'temperature': 0.7, 'max_tokens': 500}
-        resp = requests.post(f'{DEEPSEEK_BASE_URL}/v1/chat/completions', headers=headers, json=payload, timeout=30)
-        if resp.status_code == 200:
-            return resp.json()['choices'][0]['message']['content']
-        return "AI service unavailable."
-    except:
-        return "Error occurred."
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {DEEPSEEK_API_KEY}'
+        }
+        
+        payload = {
+            'model': DEEPSEEK_MODEL,
+            'messages': messages,
+            'temperature': 0.7,
+            'max_tokens': 500
+        }
+        
+        response = requests.post(
+            f'{DEEPSEEK_BASE_URL}/v1/chat/completions',
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content']
+        return "Sorry, I'm having trouble right now."
+    
+    except Exception as e:
+        logger.error(f"DeepSeek error: {e}")
+        return "An error occurred. Please try again."
 
 # ==================== KEYBOARDS ====================
 
-def main_menu():
-    kb = types.InlineKeyboardMarkup(row_width=2)
-    kb.add(
+def main_menu_keyboard():
+    """Main menu keyboard"""
+    keyboard = types.InlineKeyboardMarkup(row_width=2)
+    keyboard.add(
         types.InlineKeyboardButton("💰 Balance", callback_data="menu_balance"),
         types.InlineKeyboardButton("📋 Tasks", callback_data="menu_tasks"),
         types.InlineKeyboardButton("👥 Referrals", callback_data="menu_referrals"),
@@ -184,341 +247,543 @@ def main_menu():
         types.InlineKeyboardButton("📊 Stats", callback_data="menu_stats"),
         types.InlineKeyboardButton("🎧 Support", callback_data="menu_support")
     )
-    return kb
+    return keyboard
 
-def verify_kb():
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        types.InlineKeyboardButton("✅ Verify YouTube", callback_data="verify_youtube"),
-        types.InlineKeyboardButton("✅ Verify Instagram", callback_data="verify_instagram")
-    )
-    return kb
-
-# ==================== BOT COMMANDS ====================
+# ==================== COMMAND HANDLERS ====================
 
 @bot.message_handler(commands=['start'])
-def cmd_start(msg):
-    try:
-        uid = msg.from_user.id
-        uname = msg.from_user.username or 'User'
-        fname = msg.from_user.first_name
-        ref = None
-        parts = msg.text.split()
-        if len(parts) > 1:
-            try:
-                ref = int(parts[1])
-                if ref == uid:
-                    ref = None
-            except:
-                ref = None
-        
-        user = get_user(uid)
-        if not user:
-            create_user(uid, uname, fname, ref)
-            user = get_user(uid)
-        
-        cap = (f"👋 <b>Welcome!</b>\n\n"
-               f"🇮 <b>India's #1 Earning Bot</b>\n\n"
-               f"💡 <i>\"Success is the courage to continue.\"</i>\n\n"
-               f"📊 <b>Your Stats:</b>\n"
-               f"💰 Balance: ₹{user.get('balance',0)}\n"
-               f"📦 Plan: {user.get('plan','free').upper()}\n"
-               f"✅ Tasks: {user.get('tasks_completed',0)}\n\n"
-               f"Use /help")
+def send_welcome(message):
+    """Handle /start command"""
+    user_id = message.from_user.id
+    username = message.from_user.username or 'User'
+    first_name = message.from_user.first_name
+    
+    # Check referral
+    referrer_id = None
+    if len(message.text.split()) > 1:
         try:
-            bot.send_photo(msg.chat.id, WELCOME_PHOTO, caption=cap, reply_markup=main_menu())
+            ref_code = message.text.split()[1]
+            referrer_id = int(ref_code)
+            if referrer_id == user_id:
+                referrer_id = None
         except:
-            bot.send_message(msg.chat.id, cap.replace('<b>','').replace('</b>',''), reply_markup=main_menu())
-    except Exception as e:
-        logger.error(f"Start error: {e}")
+            referrer_id = None
+    
+    # Create user if not exists
+    user_data = get_user_data(user_id)
+    if not user_data:
+        create_user(user_id, username, first_name, referrer_id)
+        user_data = get_user_data(user_id)
+    
+    welcome_photo = "https://i.ibb.co/h1m0cc1W/6a74f155-a6b7-499f-ad34-c1a3989433e0.jpg"
+    
+    caption = (
+        f"👋 <b>Welcome to UltimateMediaSearchBot!</b>\n\n"
+        f"🇮 <b>India's #1 Destination</b> for Earning & Promotion!\n\n"
+        f"💡 <i>\"Success is not final, failure is not fatal: "
+        f"it is the courage to continue that counts.\"</i>\n\n"
+        f"🚀 <b>Start earning today!</b>\n\n"
+        f"📊 <b>Your Stats:</b>\n"
+        f"💰 Balance: ₹{user_data.get('balance', 0)}\n"
+        f"📦 Plan: {user_data.get('plan', 'free').upper()}\n"
+        f"✅ Tasks: {user_data.get('tasks_completed', 0)}\n\n"
+        f"Use /help to see all commands."
+    )
+    
+    try:
+        bot.send_photo(message.chat.id, welcome_photo, caption=caption, reply_markup=main_menu_keyboard())
+    except:
+        bot.send_message(message.chat.id, caption.replace('<b>', '').replace('</b>', '').replace('<i>', '').replace('</i>', ''), reply_markup=main_menu_keyboard())
 
 @bot.message_handler(commands=['help'])
-def cmd_help(msg):
-    txt = ("📚 <b>Commands:</b>\n\n"
-           "/start - Start bot\n"
-           "/balance - Check balance\n"
-           "/tasks - View tasks\n"
-           "/referrals - Your referrals\n"
-           "/upgrade - Upgrade plan\n"
-           "/withdraw - Withdraw\n"
-           "/stats - Your stats\n"
-           "/support - AI Support")
-    bot.send_message(msg.chat.id, txt, reply_markup=main_menu())
+def send_help(message):
+    """Handle /help command"""
+    help_text = (
+        "📚 <b>Available Commands:</b>\n\n"
+        "🏠 <b>/start</b> - Start the bot\n"
+        "💰 <b>/balance</b> - Check balance\n"
+        "📋 <b>/tasks</b> - View tasks\n"
+        "👥 <b>/referrals</b> - Your referrals\n"
+        "💳 <b>/upgrade</b> - Upgrade plan\n"
+        "💸 <b>/withdraw</b> - Withdraw\n"
+        "📝 <b>/submit_task</b> - Submit task (Advertisers)\n"
+        "🎧 <b>/support</b> - AI Support\n"
+        "📊 <b>/stats</b> - Statistics"
+    )
+    bot.send_message(message.chat.id, help_text, reply_markup=main_menu_keyboard())
 
 @bot.message_handler(commands=['balance'])
-def cmd_balance(msg):
-    user = get_user(msg.from_user.id)
-    if not user:
-        bot.send_message(msg.chat.id, "Use /start")
+def check_balance(message):
+    """Handle /balance command"""
+    user_data = get_user_data(message.from_user.id)
+    if not user_data:
+        bot.send_message(message.chat.id, "User not found. Please /start")
         return
-    mult = "2x" if user.get('plan')=='pro' else "1x"
-    txt = (f"💰 <b>Balance</b>\n"
-           f"Available: ₹{user.get('balance',0):.2f}\n"
-           f"Plan: {user.get('plan','free').upper()} ({mult})\n"
-           f"Total: ₹{user.get('total_earned',0):.2f}")
-    bot.send_message(msg.chat.id, txt, reply_markup=main_menu())
+    
+    plan = user_data.get('plan', 'free')
+    multiplier = "2x" if plan == 'pro' else "1x"
+    
+    text = (
+        f"💰 <b>Your Balance</b>\n\n"
+        f"💵 Available: ₹{user_data.get('balance', 0):.2f}\n"
+        f"📦 Plan: {plan.upper()} ({multiplier})\n"
+        f"📈 Total: ₹{user_data.get('total_earned', 0):.2f}\n\n"
+        f"Use /upgrade for 2x rewards!"
+    )
+    bot.send_message(message.chat.id, text, reply_markup=main_menu_keyboard())
 
 @bot.message_handler(commands=['tasks'])
-def cmd_tasks(msg):
-    user = get_user(msg.from_user.id)
-    if not user:
-        bot.send_message(msg.chat.id, "Use /start")
+def show_tasks(message):
+    """Handle /tasks command"""
+    user_data = get_user_data(message.from_user.id)
+    if not user_data:
+        bot.send_message(message.chat.id, "User not found. Please /start")
         return
+    
     if not firebase_db:
-        bot.send_message(msg.chat.id, "DB unavailable")
+        bot.send_message(message.chat.id, "❌ Database not connected")
         return
-    tasks = firebase_db.child('tasks').get() or {}
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    for tid, t in tasks.items():
-        if t.get('active', True):
-            reward = t.get('reward', 10) * (2 if user.get('plan')=='pro' else 1)
-            kb.add(types.InlineKeyboardButton(f"💰 {t.get('title')} - ₹{reward}", callback_data=f"task_{tid}"))
-    bot.send_message(msg.chat.id, "📋 <b>Tasks</b>", reply_markup=kb)
+    
+    tasks_ref = firebase_db.child('tasks')
+    tasks = tasks_ref.get() if tasks_ref else {}
+    
+    if not tasks:
+        bot.send_message(message.chat.id, "📭 No tasks available")
+        return
+    
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    
+    for task_id, task_data in tasks.items():
+        if task_data.get('active', True):
+            reward = task_data.get('reward', 10)
+            if user_data.get('plan') == 'pro':
+                reward *= 2
+            
+            btn_text = f"💰 {task_data.get('title', 'Task')} - ₹{reward}"
+            keyboard.add(types.InlineKeyboardButton(btn_text, callback_data=f"task_{task_id}"))
+    
+    bot.send_message(
+        message.chat.id,
+        "📋 <b>Available Tasks</b>\n\nPRO = 2x rewards",
+        reply_markup=keyboard
+    )
 
 @bot.message_handler(commands=['referrals'])
-def cmd_referrals(msg):
-    user = get_user(msg.from_user.id)
-    if not user:
-        bot.send_message(msg.chat.id, "Use /start")
+def show_referrals(message):
+    """Handle /referrals command"""
+    user_data = get_user_data(message.from_user.id)
+    if not user_data:
+        bot.send_message(message.chat.id, "User not found. Please /start")
         return
-    refs = user.get('referrals', [])
-    code = msg.from_user.id
-    comm = sum((get_user(r).get('total_earned',0)*0.10) for r in refs if get_user(r))
-    txt = (f"👥 <b>Referrals</b>\n\n"
-           f"🔗 <code>https://t.me/{bot.get_me().username}?start={code}</code>\n\n"
-           f"Total: {len(refs)} | Commission: ₹{comm:.2f}\n"
-           f"Rate: 10% lifetime")
-    bot.send_message(msg.chat.id, txt, reply_markup=main_menu())
+    
+    referrals = user_data.get('referrals', [])
+    ref_code = message.from_user.id
+    
+    text = (
+        f"👥 <b>Your Referrals</b>\n\n"
+        f"🔗 <b>Referral Link:</b>\n"
+        f"<code>https://t.me/{bot.get_me().username}?start={ref_code}</code>\n\n"
+        f"📊 <b>Stats:</b>\n"
+        f"👤 Total: {len(referrals)}\n"
+        f"💵 Commission: 10% lifetime"
+    )
+    
+    bot.send_message(message.chat.id, text, reply_markup=main_menu_keyboard())
 
 @bot.message_handler(commands=['upgrade'])
-def cmd_upgrade(msg):
-    user = get_user(msg.from_user.id)
-    if not user:
-        bot.send_message(msg.chat.id, "Use /start")
+def upgrade_plan(message):
+    """Handle /upgrade command"""
+    user_data = get_user_data(message.from_user.id)
+    if not user_data:
+        bot.send_message(message.chat.id, "User not found. Please /start")
         return
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    kb.add(
+    
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    keyboard.add(
         types.InlineKeyboardButton("💰 ₹100 - PRO (2x)", callback_data="upgrade_pro"),
-        types.InlineKeyboardButton("📢 ₹500 - ADVERTISER", callback_data="upgrade_advertiser")
+        types.InlineKeyboardButton("📢 ₹500 - ADVERTISER", callback_data="upgrade_advertiser"),
+        types.InlineKeyboardButton("❌ Cancel", callback_data="cancel_upgrade")
     )
-    txt = (f"💎 <b>Upgrade</b>\nCurrent: {user.get('plan','free').upper()}\n\n"
-           f"🥇 PRO ₹100: 2x rewards\n"
-           f"🏢 ADVERTISER ₹500: Submit tasks\n\n"
-           f"💳 UPI: {UPI_ID}")
-    bot.send_message(msg.chat.id, txt, reply_markup=kb)
+    
+    text = (
+        f"💎 <b>Upgrade Plan</b>\n\n"
+        f"📦 Current: {user_data.get('plan', 'free').upper()}\n\n"
+        f"<b>Plans:</b>\n\n"
+        f"🥇 <b>PRO - ₹100</b>\n"
+        f"• 2x rewards\n"
+        f"• Priority support\n\n"
+        f"🏢 <b>ADVERTISER - ₹500</b>\n"
+        f"• All PRO features\n"
+        f"• Submit tasks\n\n"
+        f"💳 UPI: {UPI_ID}"
+    )
+    
+    bot.send_message(message.chat.id, text, reply_markup=keyboard)
 
 @bot.message_handler(commands=['withdraw'])
-def cmd_withdraw(msg):
-    user = get_user(msg.from_user.id)
-    if not user:
-        bot.send_message(msg.chat.id, "Use /start")
+def withdraw(message):
+    """Handle /withdraw command"""
+    user_data = get_user_data(message.from_user.id)
+    if not user_data:
+        bot.send_message(message.chat.id, "User not found. Please /start")
         return
-    bal = user.get('balance', 0)
-    if bal < 100:
-        bot.send_message(msg.chat.id, f"Min: ₹100 | Balance: ₹{bal}", reply_markup=main_menu())
+    
+    balance = user_data.get('balance', 0)
+    min_withdraw = 100
+    
+    if balance < min_withdraw:
+        bot.send_message(
+            message.chat.id,
+            f"❌ Insufficient Balance\n\n"
+            f"Minimum: ₹{min_withdraw}\n"
+            f"Yours: ₹{balance}",
+            reply_markup=main_menu_keyboard()
+        )
         return
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    for amt in [100, 500, 1000]:
-        kb.add(types.InlineKeyboardButton(f"₹{amt}", callback_data=f"withdraw_{amt}"))
-    bot.send_message(msg.chat.id, f"💸 Withdraw\nBalance: ₹{bal}", reply_markup=kb)
+    
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    keyboard.add(
+        types.InlineKeyboardButton("💵 ₹100", callback_data="withdraw_100"),
+        types.InlineKeyboardButton("💵 ₹500", callback_data="withdraw_500"),
+        types.InlineKeyboardButton("❌ Cancel", callback_data="cancel_withdraw")
+    )
+    
+    text = (
+        f"💸 <b>Withdraw</b>\n\n"
+        f"Balance: ₹{balance}\n"
+        f"Min: ₹{min_withdraw}\n\n"
+        f"Select amount:"
+    )
+    
+    bot.send_message(message.chat.id, text, reply_markup=keyboard)
 
 @bot.message_handler(commands=['stats'])
-def cmd_stats(msg):
-    user = get_user(msg.from_user.id)
-    if not user:
-        bot.send_message(msg.chat.id, "Use /start")
+def show_stats(message):
+    """Handle /stats command"""
+    user_data = get_user_data(message.from_user.id)
+    if not user_data:
+        bot.send_message(message.chat.id, "User not found. Please /start")
         return
-    txt = (f"📊 <b>Stats</b>\n"
-           f"Balance: ₹{user.get('balance',0):.2f}\n"
-           f"Earned: ₹{user.get('total_earned',0):.2f}\n"
-           f"Tasks: {user.get('tasks_completed',0)}\n"
-           f"Referrals: {len(user.get('referrals',[]))}\n"
-           f"Plan: {user.get('plan','free').upper()}")
-    bot.send_message(msg.chat.id, txt, reply_markup=main_menu())
+    
+    text = (
+        f"📊 <b>Statistics</b>\n\n"
+        f"💰 Balance: ₹{user_data.get('balance', 0):.2f}\n"
+        f"📈 Earned: ₹{user_data.get('total_earned', 0):.2f}\n"
+        f"✅ Tasks: {user_data.get('tasks_completed', 0)}\n"
+        f"👥 Referrals: {len(user_data.get('referrals', []))}\n"
+        f"📦 Plan: {user_data.get('plan', 'free').upper()}\n"
+        f"📅 Joined: {user_data.get('joined_date', 'N/A')[:10]}\n\n"
+        f"🎯 <b>Verification:</b>\n"
+        f"{'✅' if user_data.get('verified_youtube') else '❌'} YouTube\n"
+        f"{'✅' if user_data.get('verified_instagram') else '❌'} Instagram"
+    )
+    
+    bot.send_message(message.chat.id, text, reply_markup=main_menu_keyboard())
 
 @bot.message_handler(commands=['support'])
-def cmd_support(msg):
-    m = bot.send_message(msg.chat.id, "🎧 Describe your issue:", reply_markup=types.ForceReply())
-    bot.register_next_step_handler(m, process_support)
-
-def process_support(msg):
-    if not msg.text:
-        return
-    user = get_user(msg.from_user.id)
-    sys_msg = {"role": "system", "content": f"Support for earning bot. PRO=₹100=2x, ADVERTISER=₹500, referral=10%, withdraw min ₹100, UPI:{UPI_ID}"}
-    usr_msg = {"role": "user", "content": f"User:{msg.from_user.first_name} Plan:{user.get('plan','free') if user else '?'} Q:{msg.text}"}
-    resp = query_deepseek([sys_msg, usr_msg])
-    bot.send_message(msg.chat.id, f"🎧 Support:\n\n{resp}", reply_markup=main_menu())
-
-# ==================== CALLBACKS ====================
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith('menu_'))
-def cb_menu(call):
-    action = call.data.replace('menu_', '')
-    handlers = {
-        'balance': cmd_balance, 'tasks': cmd_tasks, 'referrals': cmd_referrals,
-        'upgrade': cmd_upgrade, 'withdraw': cmd_withdraw, 'stats': cmd_stats, 'support': cmd_support
-    }
-    if action in handlers:
-        handlers[action](call.message)
-    bot.answer_callback_query(call.id)
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith('task_'))
-def cb_task(call):
-    tid = call.data.replace('task_', '')
-    uid = call.from_user.id
-    user = get_user(uid)
-    if not user:
-        bot.answer_callback_query(call.id, "Error", show_alert=True)
-        return
-    if not user.get('verified_youtube') or not user.get('verified_instagram'):
-        bot.send_message(uid, "⚠️ Verify first", reply_markup=verify_kb())
-        bot.answer_callback_query(call.id, "Verify first")
-        return
-    if not firebase_db:
-        bot.answer_callback_query(call.id, "DB error", show_alert=True)
-        return
-    task = firebase_db.child('tasks').child(tid).get()
-    if not task:
-        bot.answer_callback_query(call.id, "Not found", show_alert=True)
-        return
-    if tid in user.get('completed_tasks', []):
-        bot.answer_callback_query(call.id, "Already done", show_alert=True)
-        return
-    reward = task.get('reward',10) * (2 if user.get('plan')=='pro' else 1)
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    kb.add(
-        types.InlineKeyboardButton("🔗 Open", url=task.get('link','#')),
-        types.InlineKeyboardButton("✅ Done", callback_data=f"complete_{tid}")
+def support_command(message):
+    """Handle /support command"""
+    msg = bot.send_message(
+        message.chat.id,
+        "🎧 <b>AI Support</b>\n\nAsk your question:",
+        reply_markup=types.ForceReply()
     )
-    bot.send_message(uid, f"📋 {task.get('title')}\n💰 ₹{reward}", reply_markup=kb)
-    bot.answer_callback_query(call.id)
+    bot.register_next_step_handler(msg, process_support_query)
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith('complete_'))
-def cb_complete(call):
-    tid = call.data.replace('complete_', '')
-    uid = call.from_user.id
+async def process_support_query(message):
+    """Process support query"""
+    if message.text is None:
+        bot.send_message(message.chat.id, "❌ Invalid input")
+        return
+    
+    bot.send_chat_action(message.chat.id, 'typing')
+    
+    user_data = get_user_data(message.from_user.id)
+    
+    system_msg = {
+        "role": "system",
+        "content": "You are support for UltimateMediaSearchBot. Be helpful and friendly."
+    }
+    
+    user_msg = {
+        "role": "user",
+        "content": f"User: {message.from_user.first_name}\nPlan: {user_data.get('plan', 'free') if user_data else 'unknown'}\nQ: {message.text}"
+    }
+    
+    response = await query_deepseek([system_msg, user_msg])
+    
+    bot.send_message(
+        message.chat.id,
+        f"🎧 <b>Support:</b>\n\n{response}",
+        reply_markup=main_menu_keyboard()
+    )
+
+# ==================== CALLBACK HANDLERS ====================
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('task_'))
+def handle_task_callback(call):
+    """Handle task selection"""
+    task_id = call.data.replace('task_', '')
+    user_id = call.from_user.id
+    
+    user_data = get_user_data(user_id)
+    if not user_data:
+        bot.answer_callback_query(call.id, "Error: User not found", show_alert=True)
+        return
+    
+    # Check verification
+    if not user_data.get('verified_youtube') or not user_data.get('verified_instagram'):
+        keyboard = types.InlineKeyboardMarkup(row_width=1)
+        keyboard.add(
+            types.InlineKeyboardButton("✅ Verify YouTube", callback_data="verify_youtube"),
+            types.InlineKeyboardButton("✅ Verify Instagram", callback_data="verify_instagram")
+        )
+        
+        bot.send_message(
+            user_id,
+            f"⚠️ <b>Verify First</b>\n\n"
+            f"Follow:\n"
+            f"1️⃣ {YOUTUBE_CHANNEL}\n"
+            f"2️⃣ {INSTAGRAM_HANDLE}",
+            reply_markup=keyboard
+        )
+        bot.answer_callback_query(call.id, "Verify accounts first")
+        return
+    
+    # Get task
     if not firebase_db:
-        bot.answer_callback_query(call.id, "Error", show_alert=True)
+        bot.answer_callback_query(call.id, "Database error", show_alert=True)
         return
-    task = firebase_db.child('tasks').child(tid).get()
-    user = get_user(uid)
-    if not task or not user:
-        bot.answer_callback_query(call.id, "Error", show_alert=True)
+    
+    task_ref = firebase_db.child('tasks').child(task_id)
+    task_data = task_ref.get()
+    
+    if not task_data:
+        bot.answer_callback_query(call.id, "Task not found", show_alert=True)
         return
-    reward = task.get('reward',10) * (2 if user.get('plan')=='pro' else 1)
-    if add_balance(uid, task.get('reward',10), tid):
-        done = user.get('completed_tasks', [])
-        if tid not in done:
-            done.append(tid)
-            firebase_db.child('users').child(str(uid)).update({'completed_tasks': done})
-        bot.answer_callback_query(call.id, f"✅ +₹{reward}")
-    else:
-        bot.answer_callback_query(call.id, "Error", show_alert=True)
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith('verify_'))
-def cb_verify(call):
-    uid = call.from_user.id
-    platform = call.data.replace('verify_', '')
-    if platform == 'youtube':
-        update_user(uid, {'verified_youtube': True})
-        bot.answer_callback_query(call.id, "✅ YouTube", show_alert=True)
-    elif platform == 'instagram':
-        update_user(uid, {'verified_instagram': True})
-        bot.answer_callback_query(call.id, "✅ Instagram", show_alert=True)
-    user = get_user(uid)
-    if user and user.get('verified_youtube') and user.get('verified_instagram'):
-        bot.edit_message_text("✅ All verified!", call.message.chat.id, call.message.message_id, reply_markup=main_menu())
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith('upgrade_'))
-def cb_upgrade(call):
-    plan = call.data.replace('upgrade_', '')
-    uid = call.from_user.id
-    amt = 100 if plan == 'pro' else 500
-    pname = 'PRO' if plan == 'pro' else 'ADVERTISER'
-    kb = types.InlineKeyboardMarkup(row_width=1)
-    kb.add(types.InlineKeyboardButton("✅ Paid", callback_data=f"paid_{plan}"))
-    bot.send_message(uid, f"💎 {pname} - ₹{amt}\nUPI: {UPI_ID}\nClick after payment", reply_markup=kb)
+    
+    # Check if completed
+    completed = user_data.get('completed_tasks', [])
+    if task_id in completed:
+        bot.answer_callback_query(call.id, "Already completed!", show_alert=True)
+        return
+    
+    # Show task
+    reward = task_data.get('reward', 10)
+    if user_data.get('plan') == 'pro':
+        reward *= 2
+    
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    keyboard.add(
+        types.InlineKeyboardButton("🔗 Open Link", url=task_data.get('link', '#')),
+        types.InlineKeyboardButton("✅ Completed", callback_data=f"complete_{task_id}")
+    )
+    
+    bot.send_message(
+        user_id,
+        f"📋 <b>{task_data.get('title')}</b>\n\n"
+        f"{task_data.get('description', '')}\n\n"
+        f"💰 Reward: ₹{reward}",
+        reply_markup=keyboard
+    )
+    
     bot.answer_callback_query(call.id)
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith('paid_'))
-def cb_paid(call):
-    plan = call.data.replace('paid_', '')
-    uid = call.from_user.id
-    if ADMIN_ID:
-        try:
-            bot.send_message(ADMIN_ID, f"🔔 {call.from_user.first_name} | {plan.upper()}")
-        except:
-            pass
-    bot.send_message(uid, "✅ Submitted for verification", reply_markup=main_menu())
-    bot.answer_callback_query(call.id, "Submitted")
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith('withdraw_'))
-def cb_withdraw(call):
-    amt = int(call.data.replace('withdraw_', ''))
-    uid = call.from_user.id
-    user = get_user(uid)
-    if not user or user.get('balance',0) < amt:
-        bot.answer_callback_query(call.id, "Insufficient", show_alert=True)
+@bot.callback_query_handler(func=lambda call: call.data.startswith('complete_'))
+def handle_complete_task(call):
+    """Handle task completion"""
+    task_id = call.data.replace('complete_', '')
+    user_id = call.from_user.id
+    
+    if not firebase_db:
+        bot.answer_callback_query(call.id, "Database error", show_alert=True)
         return
+    
+    task_ref = firebase_db.child('tasks').child(task_id)
+    task_data = task_ref.get()
+    
+    if not task_data:
+        bot.answer_callback_query(call.id, "Task not found", show_alert=True)
+        return
+    
+    user_data = get_user_data(user_id)
+    reward = task_data.get('reward', 10)
+    
+    if user_data.get('plan') == 'pro':
+        reward *= 2
+    
+    if add_balance(user_id, task_data.get('reward', 10), task_id):
+        # Mark completed
+        user_ref = firebase_db.child('users').child(str(user_id))
+        completed = user_data.get('completed_tasks', [])
+        completed.append(task_id)
+        user_ref.update({'completed_tasks': completed})
+        
+        bot.answer_callback_query(call.id, f"✅ ₹{reward} added!", show_alert=False)
+        
+        bot.send_message(
+            user_id,
+            f"✅ <b>Completed!</b>\n\n"
+            f"₹{reward} added to balance.",
+            reply_markup=main_menu_keyboard()
+        )
+    else:
+        bot.answer_callback_query(call.id, "Error. Try again", show_alert=True)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('verify_'))
+def handle_verification(call):
+    """Handle verification"""
+    user_id = call.from_user.id
+    platform = call.data.replace('verify_', '')
+    
+    if platform == 'youtube':
+        update_user_data(user_id, {'verified_youtube': True})
+        bot.answer_callback_query(call.id, "✅ YouTube verified!", show_alert=True)
+    elif platform == 'instagram':
+        update_user_data(user_id, {'verified_instagram': True})
+        bot.answer_callback_query(call.id, "✅ Instagram verified!", show_alert=True)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('upgrade_'))
+def handle_upgrade(call):
+    """Handle upgrade"""
+    plan_type = call.data.replace('upgrade_', '')
+    user_id = call.from_user.id
+    
+    amount = 100 if plan_type == 'pro' else 500
+    plan_name = "PRO" if plan_type == 'pro' else "ADVERTISER"
+    
+    keyboard = types.InlineKeyboardMarkup(row_width=1)
+    keyboard.add(
+        types.InlineKeyboardButton("✅ I Paid", callback_data=f"paid_{plan_type}"),
+        types.InlineKeyboardButton("❌ Cancel", callback_data="cancel_upgrade")
+    )
+    
+    bot.send_message(
+        user_id,
+        f"💎 <b>Upgrade to {plan_name}</b>\n\n"
+        f"💰 Amount: ₹{amount}\n\n"
+        f"📲 Send to:\n<code>{UPI_ID}</code>\n\n"
+        f"Then click 'I Paid'",
+        reply_markup=keyboard
+    )
+    
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('paid_'))
+def handle_payment_confirmation(call):
+    """Handle payment confirmation"""
+    plan_type = call.data.replace('paid_', '')
+    user_id = call.from_user.id
+    
+    bot.send_message(
+        user_id,
+        "✅ <b>Payment Submitted!</b>\n\n"
+        "Will be verified in 24 hours.",
+        reply_markup=main_menu_keyboard()
+    )
+    
+    bot.answer_callback_query(call.id, "Submitted for verification")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('withdraw_'))
+def handle_withdraw(call):
+    """Handle withdrawal"""
+    amount = int(call.data.replace('withdraw_', ''))
+    user_id = call.from_user.id
+    
+    user_data = get_user_data(user_id)
+    if not user_data:
+        bot.answer_callback_query(call.id, "Error", show_alert=True)
+        return
+    
+    if user_data.get('balance', 0) < amount:
+        bot.answer_callback_query(call.id, "Insufficient balance", show_alert=True)
+        return
+    
+    # Create withdrawal request
     if firebase_db:
-        firebase_db.child('withdrawals').push({
-            'user_id': uid, 'amount': amt, 'status': 'pending',
+        withdrawal_data = {
+            'user_id': user_id,
+            'amount': amount,
+            'status': 'pending',
             'requested_at': datetime.now().isoformat()
-        })
-    bot.send_message(uid, f"💸 ₹{amt} requested\n24-48 hrs", reply_markup=main_menu())
-    bot.answer_callback_query(call.id, "Requested")
+        }
+        firebase_db.child('withdrawals').push().set(withdrawal_data)
+    
+    bot.send_message(
+        user_id,
+        f"💸 <b>Withdrawal Request</b>\n\n"
+        f"Amount: ₹{amount}\n"
+        f"Status: Pending\n"
+        f"Will process in 24-48h",
+        reply_markup=main_menu_keyboard()
+    )
+    
+    bot.answer_callback_query(call.id, "Request submitted")
 
-# ==================== FLASK ROUTES (VERCEL) ====================
+@bot.callback_query_handler(func=lambda call: call.data.startswith('menu_'))
+def handle_menu_callbacks(call):
+    """Handle menu buttons"""
+    action = call.data.replace('menu_', '')
+    
+    if action == 'balance':
+        check_balance(call.message)
+    elif action == 'tasks':
+        show_tasks(call.message)
+    elif action == 'referrals':
+        show_referrals(call.message)
+    elif action == 'upgrade':
+        upgrade_plan(call.message)
+    elif action == 'withdraw':
+        withdraw(call.message)
+    elif action == 'stats':
+        show_stats(call.message)
+    elif action == 'support':
+        support_command(call.message)
+    
+    bot.answer_callback_query(call.id)
 
-@app.route('/api/webhook', methods=['POST'])
+@bot.callback_query_handler(func=lambda call: call.data in ['cancel_upgrade', 'cancel_withdraw'])
+def handle_cancel(call):
+    """Handle cancel"""
+    bot.edit_message_text(
+        "❌ Cancelled",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=main_menu_keyboard()
+    )
+    bot.answer_callback_query(call.id, "Cancelled")
+
+# ==================== FLASK WEBHOOK ====================
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
+    """Handle webhook"""
     if request.headers.get('content-type') == 'application/json':
-        try:
-            update = telebot.types.Update.de_json(request.get_data().decode('utf-8'))
-            bot.process_new_updates([update])
-            return '', 200
-        except Exception as e:
-            logger.error(f"Webhook error: {e}")
-            return '', 500
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return '', 200
     return '', 403
 
-@app.route('/api/set-webhook', methods=['GET'])
 @app.route('/set-webhook', methods=['GET'])
 def set_webhook():
-    webhook_url = os.getenv('WEBHOOK_URL', request.host_url.rstrip('/') + '/webhook')
+    """Set webhook"""
+    webhook_url = os.getenv('WEBHOOK_URL')
+    
     try:
         bot.remove_webhook()
         bot.set_webhook(url=webhook_url)
-        return jsonify({'status':'success','webhook':webhook_url})
+        return jsonify({'status': 'success', 'message': 'Webhook set'})
     except Exception as e:
-        return jsonify({'status':'error','message':str(e)}), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app.route('/api', methods=['GET'])
 @app.route('/', methods=['GET'])
-def health():
-    return jsonify({
-        'status':'ok',
-        'bot':'running' if BOT_TOKEN else 'no_token',
-        'firebase':'connected' if firebase_db else 'disconnected',
-        'initialized': firebase_initialized
-    })
+def health_check():
+    """Health check"""
+    return jsonify({'status': 'ok', 'message': 'Bot running'})
 
-@app.route('/api/test-db', methods=['GET'])
-@app.route('/test-db', methods=['GET'])
-def test_db():
-    if not firebase_db:
-        return jsonify({'status':'error','message':'Firebase not initialized'}), 500
-    try:
-        firebase_db.child('health').push({'ok':True,'ts':datetime.now().isoformat()})
-        return jsonify({'status':'success','message':'Firebase OK'})
-    except Exception as e:
-        return jsonify({'status':'error','message':str(e)}), 500
-
-# Vercel serverless handler
-def handler(request):
-    return app(request.environ, lambda *args: None)
+# ==================== MAIN ====================
 
 if __name__ == '__main__':
+    logger.info("Starting Flask server...")
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
