@@ -1,23 +1,11 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
+  "functions": {
+    "api/index.py": {
+      "memory": 256,
+      "maxDuration": 10
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "api/index.py"
-    }
-  ],
-  "env": {
-    "BOT_TOKEN": "@bot_token",
-    "DEEPSEEK_API_KEY": "@deepseek_api_key",
-    "UPI_ID": "8543083014@mbk",
-    "AD_LINK": "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b",
-    "FIREBASE_PROJECT_ID": "earn-bot-2026",
-    "FIREBASE_DATABASE_URL": "https://earn-bot-2026-default-rtdb.firebaseio.com/"
-  }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index" }
+  ]
 }
