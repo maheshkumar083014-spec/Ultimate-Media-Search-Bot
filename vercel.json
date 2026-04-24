@@ -2,35 +2,45 @@
   "version": 2,
   "builds": [
     {
-      "src": "index.py",
-      "use": "@vercel/python",
+      "src": "bot.py",
+      "use": "@vercel/python@3.2.0",
       "config": {
+        "runtime": "python3.9",
         "maxLambdaSize": "50mb"
       }
     }
   ],
   "routes": [
     {
-      "src": "/api/index",
-      "methods": ["POST", "GET"],
-      "dest": "index.py"
+      "src": "/set-webhook",
+      "dest": "bot.py"
     },
     {
       "src": "/webhook",
-      "methods": ["POST", "GET"],
-      "dest": "index.py"
+      "dest": "bot.py"
     },
     {
-      "src": "/(.*)",
-      "dest": "index.py"
+      "src": "/",
+      "dest": "bot.py"
     }
   ],
   "env": {
+    "PYTHONUNBUFFERED": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
     "BOT_TOKEN": "@bot_token",
-    "DEEPSEEK_API_KEY": "@deepseek_key",
-    "FIREBASE_PRIVATE_KEY": "@fb_private_key",
-    "FIREBASE_CLIENT_EMAIL": "@fb_client_email",
+    "DEEPSEEK_API_KEY": "@deepseek_api_key",
+    "DEEPSEEK_BASE_URL": "https://api.deepseek.com",
+    "DEEPSEEK_MODEL": "deepseek-chat",
     "UPI_ID": "8543083014@mbk",
-    "AD_LINK": "@ad_link"
+    "AD_LINK": "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b",
+    "WEBHOOK_URL": "https://your-app-name.vercel.app/webhook",
+    "FIREBASE_PRIVATE_KEY_ID": "@firebase_private_key_id",
+    "FIREBASE_PRIVATE_KEY": "@firebase_private_key",
+    "FIREBASE_CLIENT_EMAIL": "@firebase_client_email",
+    "FIREBASE_CLIENT_ID": "@firebase_client_id",
+    "FIREBASE_CLIENT_X509_CERT_URL": "@firebase_client_x509_cert_url"
+  },
+  "github": {
+    "silent": true
   }
 }
