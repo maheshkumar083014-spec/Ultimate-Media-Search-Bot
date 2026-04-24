@@ -2,22 +2,22 @@
   "version": 2,
   "builds": [
     {
-      "src": "bot.py",
+      "src": "api/index.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "bot.py"
+      "dest": "api/index.py"
     }
   ],
   "env": {
     "BOT_TOKEN": "@bot_token",
     "DEEPSEEK_API_KEY": "@deepseek_api_key",
-    "FIREBASE_CONFIG_JSON": "@firebase_config_json",
     "UPI_ID": "8543083014@mbk",
     "AD_LINK": "https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b",
-    "WEBHOOK_URL": "https://ultimate-media-search-bot.vercel.app/webhook"
+    "FIREBASE_PROJECT_ID": "earn-bot-2026",
+    "FIREBASE_DATABASE_URL": "https://earn-bot-2026-default-rtdb.firebaseio.com/"
   }
 }
