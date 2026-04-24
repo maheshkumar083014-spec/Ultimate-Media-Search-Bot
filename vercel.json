@@ -1,9 +1,12 @@
 {
   "version": 2,
   "builds": [
-    { "src": "index.py", "use": "@vercel/python" }
+    { "src": "api/index.py", "use": "@vercel/python" }
   ],
   "routes": [
-    { "src": "/(.*)", "dest": "index.py" }
+    { "src": "/api/index", "dest": "api/index.py" },
+    { "src": "/api/set_webhook", "dest": "api/index.py" },
+    { "src": "/api/chat", "dest": "api/index.py" },
+    { "src": "/dashboard", "dest": "/templates/dashboard.html" }
   ]
 }
