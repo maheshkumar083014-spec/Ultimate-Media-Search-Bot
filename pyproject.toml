@@ -1,2 +1,14 @@
-[tool.vercel.python]
-entrypoint = "api/index:app"
+[project]
+name = "ultimate-media-search-bot"
+version = "0.1.0"
+description = "Telegram Bot with Flask and Firebase"
+dependencies = [
+    "flask",
+    "pyTelegramBotAPI",
+    "firebase-admin",
+    "requests",
+    "openai"
+]
+
+[tool.vercel]
+# Ye Vercel ko batayega ki configuration kahan hai
