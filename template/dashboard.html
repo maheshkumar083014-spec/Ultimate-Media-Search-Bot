@@ -1,70 +1,66 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard | UltimateMediaSearchBot</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <title>Earning Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body { background:#0d0d0d; color:white; font-family:Arial; padding:20px; }
+        .card {
+            background:#1a1a1a; padding:20px; border-radius:12px;
+            margin-bottom:20px; box-shadow:0 0 10px rgba(255,215,0,0.3)
+        }
+        .premium {
+            background:linear-gradient(135deg,#ffd700,#ff8c00);
+            color:black;
+            padding:20px;
+            font-size:20px;
+            font-weight:bold;
+            border-radius:12px;
+            text-align:center;
+            margin-bottom:20px;
+        }
+        button {
+            background:#ffd700; border:none; padding:15px;
+            width:100%; border-radius:10px; font-size:18px;
+        }
+    </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
+<body>
 
-  <div class="max-w-md mx-auto p-4">
-    <!-- Header -->
-    <div class="text-center mb-6">
-      <h1 class="text-2xl font-bold">🏆 UltimateMediaSearchBot</h1>
-      <p class="text-sm text-gray-400">Your earning companion</p>
-    </div>
+<h2>Hello, {{name}}</h2>
 
-    <!-- Premium Golden Card (only if plan == 'pro') -->
-    {% if plan == 'pro' %}
-    <div class="bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 p-5 rounded-2xl shadow-lg mb-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-black text-sm font-semibold">PREMIUM MEMBER</p>
-          <p class="text-black text-2xl font-bold">🌟 Pro Earner</p>
-        </div>
-        <div class="bg-white text-yellow-600 rounded-full p-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-      </div>
-      <div class="mt-3 text-black">
-        <p class="text-sm">✅ 2x Earning Multiplier</p>
-        <p class="text-sm">✅ VIP Task Access</p>
-        <p class="text-sm">✅ Priority Withdrawal</p>
-      </div>
-    </div>
-    {% endif %}
+{% if user.plan == "pro" or user.plan == "advertiser" %}
+<div class="premium">
+    🌟 Golden Premium Member<br>
+    Plan: {{user.plan}}
+</div>
+{% endif %}
 
-    <!-- Balance Card -->
-    <div class="bg-gray-800 p-4 rounded-xl mb-4">
-      <p class="text-sm text-gray-400">💰 Current Balance</p>
-      <p class="text-3xl font-bold">₹{{ balance }}</p>
-    </div>
+<div class="card">
+    <h3>Your Points: {{user.points}}</h3>
+    <p>Referral Link:</p>
+    <input value="[t.me](https://t.me/YourBot?start={{uid}})" style="width:100%;padding:10px;">
+</div>
 
-    <!-- Stats -->
-    <div class="grid grid-cols-2 gap-3 mb-4">
-      <div class="bg-gray-800 p-3 rounded-xl">
-        <p class="text-xs text-gray-400">Tasks Done</p>
-        <p class="text-xl font-semibold">{{ tasks_completed }}</p>
-      </div>
-      <div class="bg-gray-800 p-3 rounded-xl">
-        <p class="text-xs text-gray-400">Role</p>
-        <p class="text-xl font-semibold capitalize">{{ role }}</p>
-      </div>
-    </div>
+<div class="card">
+    <h3>Earn 25 Points</h3>
+    <p>Watch ad for 30 sec:</p>
+    <a href="[horizontallyresearchpolar.com](https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b)">
+        <button>Open Ad</button>
+    </a>
+</div>
 
-    <!-- Profile Info -->
-    <div class="bg-gray-800 p-4 rounded-xl mb-4">
-      <h2 class="font-semibold mb-2">👤 Profile</h2>
-      <p>Name: {{ user.first_name }}</p>
-      <p>Username: @{{ user.username }}</p>
-      <p>Referral Code: <span class="font-mono bg-gray-700 px-2 rounded">{{ user.referral_code }}</span></p>
-    </div>
-
-    <p class="text-center text-gray-600 text-xs mt-6">This link expires in 1 hour.</p>
-  </div>
+{% if user.plan == "advertiser" %}
+<div class="card">
+    <h3>Upload Work (Advertiser)</h3>
+    <form method="POST" action="/upload">
+        <input name="uid" type="hidden" value="{{uid}}">
+        <input name="link" placeholder="Your Link" style="width:100%;padding:10px;margin:10px 0;">
+        <button type="submit">Submit</button>
+    </form>
+</div>
+{% endif %}
 
 </body>
 </html>
