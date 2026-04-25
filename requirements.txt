@@ -2,5 +2,4 @@ flask
 pyTelegramBotAPI
 firebase-admin
 requests
-openai
 python-dotenv
