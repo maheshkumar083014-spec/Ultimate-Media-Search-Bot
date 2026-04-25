@@ -9,15 +9,15 @@ import telebot
 from telebot import types
 import firebase_admin
 from firebase_admin import credentials, db
-import openai
+import requests  # 👈 used for DeepSeek API
 
-# ------------------------------
+# ------------------------------------------------------------
 # Logging & Configuration
-# ------------------------------
+# ------------------------------------------------------------
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Environment Variables (must be set in Vercel)
+# Environment variables (set in Vercel)
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -26,12 +26,12 @@ FIREBASE_SERVICE_ACCOUNT = os.environ.get("FIREBASE_SERVICE_ACCOUNT")  # JSON st
 WELCOME_IMAGE_URL = os.environ.get("WELCOME_IMAGE_URL")
 ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "change_me_strong_secret")
 UPI_ID = os.environ.get("UPI_ID", "8543083014@mbk")
-ADMIN_CHAT_ID = os.environ.get("ADMIN_CHAT_ID")  # Telegram chat ID for admin notifications
-VERCEL_URL = os.environ.get("VERCEL_URL")  # Provided by Vercel, e.g. project.vercel.app
+ADMIN_CHAT_ID = os.environ.get("ADMIN_CHAT_ID")  # Telegram chat ID for alerts
+VERCEL_URL = os.environ.get("VERCEL_URL")  # provided by Vercel
 
-# ------------------------------
+# ------------------------------------------------------------
 # Firebase Admin Initialization
-# ------------------------------
+# ------------------------------------------------------------
 try:
     cred_json = json.loads(FIREBASE_SERVICE_ACCOUNT)
     cred = credentials.Certificate(cred_json)
@@ -49,19 +49,19 @@ payments_ref = db.reference('payments')
 tasks_ref = db.reference('tasks')
 auth_tokens_ref = db.reference('auth_tokens')
 
-# ------------------------------
+# ------------------------------------------------------------
 # Telegram Bot Setup
-# ------------------------------
+# ------------------------------------------------------------
 bot = telebot.TeleBot(BOT_TOKEN, threaded=False)
 
-# ------------------------------
+# ------------------------------------------------------------
 # Flask App Setup
-# ------------------------------
+# ------------------------------------------------------------
 app = Flask(__name__, template_folder='../templates')
 
-# ------------------------------
-# Webhook Route for Telegram
-# ------------------------------
+# ------------------------------------------------------------
+# Webhook route for Telegram
+# ------------------------------------------------------------
 @app.route('/webhook', methods=['POST'])
 def webhook():
     if request.headers.get('content-type') == 'application/json':
@@ -74,23 +74,22 @@ def webhook():
 
 @app.route('/')
 def index():
-    return "UltimateMediaSearchBot is running. <a href='/admin?key=...'>Admin Panel</a>", 200
+    return "UltimateMediaSearchBot is running. <a href='/admin?key=...'>Admin</a>", 200
 
-# ------------------------------
+# ------------------------------------------------------------
 # Bot Command: /start
-# ------------------------------
+# ------------------------------------------------------------
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     user_id = message.from_user.id
     user_ref = users_ref.child(str(user_id))
-    
+
     if not user_ref.get():
         # New user registration
         args = message.text.split()
         referrer_code = args[1] if len(args) > 1 else None
         referrer_id = None
         if referrer_code:
-            # Find user with that referral code
             all_users = users_ref.get()
             if all_users:
                 for uid, data in all_users.items():
@@ -130,35 +129,47 @@ def send_welcome(message):
     markup.row(types.InlineKeyboardButton("❓ Help", callback_data="help"))
     bot.send_photo(message.chat.id, photo=WELCOME_IMAGE_URL, caption=caption, reply_markup=markup)
 
-# ------------------------------
-# Bot Command: /help
-# ------------------------------
+# ------------------------------------------------------------
+# Bot Command: /help  (uses requests – no openai library)
+# ------------------------------------------------------------
 @bot.message_handler(commands=['help'])
 def help_command(message):
     query = message.text.replace('/help', '', 1).strip()
     if not query:
         bot.reply_to(message, "Please describe your issue after /help, e.g.: `/help How to withdraw?`", parse_mode='Markdown')
         return
-    # Call DeepSeek AI
-    client = openai.OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
+
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [
+            {"role": "system", "content": "You are a support assistant for UltimateMediaSearchBot, a Telegram earning bot."},
+            {"role": "user", "content": query}
+        ],
+        "temperature": 0.7
+    }
+
     try:
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "system", "content": "You are a support assistant for UltimateMediaSearchBot, a Telegram earning bot."},
-                {"role": "user", "content": query}
-            ],
-            temperature=0.7
+        response = requests.post(
+            f"{DEEPSEEK_BASE_URL}/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=10
         )
-        answer = response.choices[0].message.content
+        response.raise_for_status()
+        data = response.json()
+        answer = data["choices"][0]["message"]["content"]
         bot.reply_to(message, answer, parse_mode='Markdown')
     except Exception as e:
         logger.error(f"DeepSeek API error: {e}")
         bot.reply_to(message, "Sorry, I'm having trouble answering right now. Please try again later.")
 
-# ------------------------------
+# ------------------------------------------------------------
 # Bot Command: /dashboard
-# ------------------------------
+# ------------------------------------------------------------
 @bot.message_handler(commands=['dashboard'])
 def generate_dashboard(message):
     user_id = message.from_user.id
@@ -170,19 +181,18 @@ def generate_dashboard(message):
     dashboard_url = f"https://{VERCEL_URL}/dashboard?token={token}"
     bot.reply_to(message, f"🔐 Your personal dashboard: {dashboard_url}\n⏳ Link valid for 1 hour.")
 
-# ------------------------------
-# Inline Callback Handlers
-# ------------------------------
+# ------------------------------------------------------------
+# Inline Callback Handler
+# ------------------------------------------------------------
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
     data = call.data
     user_id = call.from_user.id
 
     if data == "dashboard":
-        generate_dashboard(call.message)  # reuse command logic
+        generate_dashboard(call.message)
         bot.answer_callback_query(call.id)
     elif data == "verify":
-        # Mandatory platform verification
         markup = types.InlineKeyboardMarkup()
         markup.row(types.InlineKeyboardButton("✅ I've Joined All", callback_data="confirm_verify"))
         platforms = [
@@ -194,8 +204,9 @@ def handle_callback(call):
         bot.send_message(call.message.chat.id, msg, reply_markup=markup, disable_web_page_preview=True)
         bot.answer_callback_query(call.id)
     elif data == "confirm_verify":
-        # Trust-based verification (admin can manually verify later)
-        users_ref.child(str(user_id)).update({"verified_platforms": {"youtube": True, "instagram": True, "facebook": True}})
+        users_ref.child(str(user_id)).update({
+            "verified_platforms": {"youtube": True, "instagram": True, "facebook": True}
+        })
         bot.send_message(call.message.chat.id, "✅ All platforms verified! You can now access all tasks.")
         bot.answer_callback_query(call.id)
     elif data == "plans":
@@ -205,7 +216,6 @@ def handle_callback(call):
         bot.send_message(call.message.chat.id, "Choose your plan:", reply_markup=markup)
         bot.answer_callback_query(call.id)
     elif data.startswith("buy_"):
-        # Plan purchase flow
         plan_amount = 100 if data == "buy_100" else 500
         payment_data = {
             "user_id": user_id,
@@ -235,18 +245,16 @@ def handle_callback(call):
         bot.send_message(call.message.chat.id, "Type /help followed by your question, e.g. `/help How to withdraw?`")
         bot.answer_callback_query(call.id)
 
-# ------------------------------
+# ------------------------------------------------------------
 # Handle Payment Screenshot Submission
-# ------------------------------
+# ------------------------------------------------------------
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     user_id = message.from_user.id
-    # Look for the latest pending payment of this user
     user_payments = payments_ref.order_by_child('user_id').equal_to(user_id).get()
     if user_payments:
         for pay_id, pay_data in user_payments.items():
             if pay_data.get('status') == 'pending_screenshot':
-                # Attach screenshot and change status
                 payments_ref.child(pay_id).update({
                     "screenshot_file_id": message.photo[-1].file_id,
                     "status": "pending"
@@ -258,15 +266,14 @@ def handle_photo(message):
                 return
     bot.reply_to(message, "No pending payment found. Please start a plan purchase first.")
 
-# ------------------------------
+# ------------------------------------------------------------
 # Web Dashboard Route (User Stats)
-# ------------------------------
+# ------------------------------------------------------------
 @app.route('/dashboard')
 def user_dashboard():
     token = request.args.get('token')
     if not token:
         return redirect(url_for('index'))
-    # Validate token
     token_data = auth_tokens_ref.child(token).get()
     if not token_data:
         return "Invalid or expired token.", 401
@@ -285,15 +292,14 @@ def user_dashboard():
                            role=user.get('role', 'user'),
                            tasks_completed=user.get('tasks_completed', 0))
 
-# ------------------------------
+# ------------------------------------------------------------
 # Admin Panel
-# ------------------------------
+# ------------------------------------------------------------
 @app.route('/admin')
 def admin_panel():
     key = request.args.get('key', '')
     if key != ADMIN_SECRET:
         return "Unauthorized", 401
-    # Fetch all pending payments and tasks
     all_payments = payments_ref.get() or {}
     pending_payments = {pid: p for pid, p in all_payments.items() if p.get('status') == 'pending'}
     all_tasks = tasks_ref.get() or {}
@@ -301,7 +307,6 @@ def admin_panel():
                            pending_payments=pending_payments,
                            tasks=all_tasks)
 
-# Admin actions (approve payment)
 @app.route('/admin/approve_payment', methods=['POST'])
 def approve_payment():
     key = request.form.get('key')
@@ -314,24 +319,20 @@ def approve_payment():
     if not payment:
         return "Payment not found", 404
     user_id = payment['user_id']
-    # Update user based on payment type
     updates = {}
     if 'plan' in payment:
-        updates['plan'] = payment['plan']  # "pro"
+        updates['plan'] = payment['plan']
     if 'role_update' in payment:
-        updates['role'] = payment['role_update']  # "advertiser"
+        updates['role'] = payment['role_update']
     if updates:
         users_ref.child(str(user_id)).update(updates)
-    # Mark payment as approved
     payments_ref.child(payment_id).update({"status": "approved"})
-    # Notify user
     try:
         bot.send_message(user_id, "✅ Your payment has been approved! Your account has been upgraded.")
     except Exception as e:
         logger.warning(f"Could not notify user {user_id}: {e}")
     return redirect(url_for('admin_panel', key=key))
 
-# Admin add task
 @app.route('/admin/add_task', methods=['POST'])
 def add_task():
     key = request.form.get('key')
@@ -352,16 +353,17 @@ def add_task():
     })
     return redirect(url_for('admin_panel', key=key))
 
-# (Optional: Webhook setter for convenience)
+# ------------------------------------------------------------
+# Webhook setter (for one‑time setup)
+# ------------------------------------------------------------
 @app.route('/set_webhook', methods=['GET'])
 def set_webhook():
     url = f"https://{VERCEL_URL}/webhook"
     bot.set_webhook(url=url)
     return f"Webhook set to {url}", 200
 
-# ------------------------------
-# Vercel requires the Flask app to be exported as `app`
-# ------------------------------
+# ------------------------------------------------------------
+# Vercel entry point
+# ------------------------------------------------------------
 if __name__ == '__main__':
-    # Only used for local testing
     app.run(host='0.0.0.0', port=5000)
