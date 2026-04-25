@@ -1,187 +1,87 @@
 import os
 import telebot
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template_string
 import firebase_admin
 from firebase_admin import credentials, db
-import requests
-import json
 
-# ---------------------------
-# ENVIRONMENT VARIABLES
-# ---------------------------
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-FIREBASE_DB_URL = os.getenv("FIREBASE_DB_URL")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0000"))
-
-WELCOME_PHOTO = "[i.ibb.co](https://i.ibb.co/h1m0cc1W/6a74f155-a6b7-499f-ad34-c1a3989433e0.jpg)"
-
-# ---------------------------
-# FLASK + TELEGRAM BOT
-# ---------------------------
+# --- Configuration ---
+TOKEN = "8701635891:AAFmgU89KRhd2dhE-PqRY-mBmGy_SxQEGOg"
+bot = telebot.TeleBot(TOKEN, threaded=False)
 app = Flask(__name__)
-bot = telebot.TeleBot(BOT_TOKEN)
 
-cred = credentials.Certificate("firebase-service-account.json")
-firebase_admin.initialize_app(cred, {"databaseURL": FIREBASE_DB_URL})
+# Firebase Initialization
+# Note: In production, use a serviceAccountKey.json file or Environment Variables
+firebase_config = {
+    "databaseURL": "https://earn-bot-2026-default-rtdb.firebaseio.com/"
+}
 
-users_ref = db.reference("users")
-plans_ref = db.reference("plans")
-uploads_ref = db.reference("uploads")
-verification_ref = db.reference("verification")
+if not firebase_admin._apps:
+    cred = credentials.Certificate("serviceAccountKey.json") # Ensure this file exists
+    firebase_admin.initialize_app(cred, firebase_config)
 
-# ---------------------------
-#   AI SUPPORT (DeepSeek)
-# ---------------------------
-def deepseek_chat(message):
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": message}]
-    }
-    headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    r = requests.post("[api.deepseek.com](https://api.deepseek.com/chat/completions)", headers=headers, json=payload)
-    return r.json()["choices"][0]["message"]["content"]
+# Social Links
+SOCIAL_LINKS = {
+    "YouTube": "https://youtube.com/@USSoccerPulse",
+    "Instagram": "https://instagram.com/digital_rockstar_m",
+    "Facebook": "https://facebook.com/OfficialProfile"
+}
 
+# --- Bot Logic ---
 
-# ---------------------------
-# TELEGRAM BOT: /start
-# ---------------------------
-@bot.message_handler(commands=["start"])
-def start(msg):
-    uid = str(msg.from_user.id)
-    name = msg.from_user.first_name
-
-    # Create User in Firebase
-    users_ref.child(uid).update({
-        "name": name,
-        "points": 0,
-        "plan": "free",
-        "verified": False,
-        "referrals": 0
-    })
-
-    dashboard_url = f"[{os.getenv(](https://{os.getenv()'VERCEL_URL')}/dashboard?id={uid}&name={name}"
+@bot.message_handler(commands=['start'])
+def start(message):
+    user_id = str(message.from_user.id)
+    ref = db.reference(f'users/{user_id}')
+    
+    # Initialize user if not exists
+    if not ref.get():
+        ref.set({
+            "username": message.from_user.username,
+            "points": 0,
+            "status": "free",
+            "verified": False
+        })
 
     markup = telebot.types.InlineKeyboardMarkup()
-    markup.add(telebot.types.InlineKeyboardButton("Open Dashboard", url=dashboard_url))
-
+    for name, link in SOCIAL_LINKS.items():
+        markup.add(telebot.types.InlineKeyboardButton(text=f"Join {name}", url=link))
+    
+    markup.add(telebot.types.InlineKeyboardButton(text="✅ Verify Membership", callback_data="verify"))
+    
     bot.send_photo(
-        msg.chat.id,
-        WELCOME_PHOTO,
-        caption="Welcome to Ultimate Media Search & Earn Bot!\nTap below to open your Dashboard.",
+        message.chat.id, 
+        "https://i.ibb.co/h1m0cc1W/6a74f155-a6b7-499f-ad34-c1a3989433e0.jpg",
+        caption="Welcome to UltimateMediaSearchBot V3! Complete the verification below to start earning.",
         reply_markup=markup
     )
 
+@bot.callback_query_handler(func=lambda call: call.data == "verify")
+def verify_user(call):
+    user_id = str(call.from_user.id)
+    db.reference(f'users/{user_id}').update({"verified": True})
+    bot.answer_callback_query(call.id, "Verification Successful!")
+    bot.send_message(call.message.chat.id, "🎉 Access Granted! Use /dashboard to see your stats.")
 
-# ---------------------------
-# YT / IG / FACEBOOK VERIFICATION
-# ---------------------------
-@bot.message_handler(commands=["verify"])
-def verify_user(msg):
-    uid = str(msg.from_user.id)
+# --- Flask Routes ---
 
-    verification_ref.child(uid).set({
-        "youtube": False,
-        "instagram": False,
-        "facebook": False
-    })
+@app.route('/')
+def index():
+    return "Bot is Running."
 
-    text = (
-        "Complete all 3 verification steps:\n\n"
-        "1️⃣ Subscribe YouTube: @USSoccerPulse\n"
-        "2️⃣ Follow Instagram: @digital_rockstar_m\n"
-        "3️⃣ Follow Facebook (Official)\n\n"
-        "Send: done"
-    )
-
-    bot.reply_to(msg, text)
-
-
-@bot.message_handler(func=lambda m: m.text.lower()=="done")
-def verify_done(msg):
-    uid = str(msg.from_user.id)
-
-    verification_ref.child(uid).update({
-        "youtube": True,
-        "instagram": True,
-        "facebook": True
-    })
-
-    users_ref.child(uid).update({"verified": True})
-
-    bot.reply_to(msg, "🎉 Verification Complete! You can now earn points.")
-
-
-# ---------------------------
-# PAYMENT SCREENSHOT HANDLING
-# ---------------------------
-@bot.message_handler(content_types=["photo"])
-def payment_upload(msg):
-    uid = str(msg.from_user.id)
-
-    if msg.caption and msg.caption.lower().startswith("plan"):
-        file_id = msg.photo[-1].file_id
-        plans_ref.child(uid).set({"file_id": file_id})
-
-        bot.reply_to(msg, "Your payment screenshot was submitted. Admin will verify soon.")
-
-        # Notify Admin
-        bot.send_message(
-            ADMIN_ID,
-            f"New Payment Submitted by {uid}. Check /admin panel."
-        )
-
-
-# ---------------------------
-# FLASK ROUTES (DASHBOARD + ADMIN)
-# ---------------------------
-
-@app.route("/dashboard")
-def dashboard():
-    uid = request.args.get("id")
-    name = request.args.get("name")
-
-    user = users_ref.child(uid).get() or {}
-
-    return render_template("dashboard.html", uid=uid, name=name, user=user)
-
-
-@app.route("/admin")
-def admin():
-    data = plans_ref.get() or {}
-    return render_template("admin.html", data=data)
-
-
-@app.route("/approve", methods=["POST"])
-def approve():
-    uid = request.json["uid"]
-    plan = request.json["plan"]
-
-    users_ref.child(uid).update({"plan": plan})
-    return jsonify({"status": "ok"})
-
-
-# ---------------------------
-# TELEGRAM WEBHOOK ENDPOINT
-# ---------------------------
-@app.route("/", methods=["POST"])
+@app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
-    json_data = request.get_data().decode("utf-8")
-    update = telebot.types.Update.de_json(json_data)
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
     bot.process_new_updates([update])
-    return "ok"
+    return "!", 200
 
+@app.route('/dashboard/<user_id>')
+def dashboard(user_id):
+    user_data = db.reference(f'users/{user_id}').get()
+    if not user_data: return "User not found", 404
+    
+    # Simple render for brevity; use external templates for full HTML
+    return f"<h1>Welcome {user_data.get('username')}</h1><p>Points: {user_data.get('points')}</p>"
 
-@app.route("/", methods=["GET"])
-def home():
-    return "Bot Running Successfully"
-
-
-# ---------------------------
-# LOCAL TESTING
-# ---------------------------
 if __name__ == "__main__":
     app.run(debug=True)
