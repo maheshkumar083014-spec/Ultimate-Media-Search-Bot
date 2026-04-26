@@ -1,8 +1,9 @@
 """
-🤖 Ultimate Media Search Bot - Firebase Fixed for Vercel + asia-southeast1
-✅ Handles private_key newlines correctly
-✅ Proper region configuration
-✅ No more "Unauthorized" errors
+🤖 Ultimate Media Search Bot - Complete Vercel-Ready Solution
+✅ Firebase asia-southeast1 compatible
+✅ Private key newline fix for Vercel env vars
+✅ Telegram Bot + Flask + Dashboard in single file
+✅ No more "Unauthorized" errors!
 """
 
 import os
@@ -29,33 +30,23 @@ logger = logging.getLogger(__name__)
 logger.info("🚀 Starting Ultimate Media Search Bot...")
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔐 Firebase Service Account Parser (FIXES THE UNAUTHORIZED ERROR)
+# 🔐 Firebase Service Account Parser (FIXES UNAUTHORIZED ERROR)
 # ─────────────────────────────────────────────────────────────────────
 
 def parse_firebase_credentials(env_value: str) -> Optional[Dict[str, Any]]:
     """
     Parse Firebase Service Account JSON from Vercel environment variable.
-    
-    🔥 CRITICAL: Fixes private_key newline issues that cause "Unauthorized" errors
-    
-    Args:
-        env_value: Raw string from os.environ['FIREBASE_SERVICE_ACCOUNT']
-    
-    Returns:
-        Dict with properly formatted credentials or None
+    🔥 CRITICAL: Fixes private_key newline issues
     """
     if not env_value or env_value == 'skip':
-        logger.warning("⚠️ FIREBASE_SERVICE_ACCOUNT not set or set to 'skip'")
+        logger.warning("⚠️ FIREBASE_SERVICE_ACCOUNT not set")
         return None
     
     try:
-        # Try direct JSON parse first (for local development)
         if isinstance(env_value, dict):
             return _fix_private_key(env_value)
         
-        # Parse JSON string
         creds = json.loads(env_value)
-        
         if not isinstance(creds, dict) or 'private_key' not in creds:
             raise ValueError("Invalid service account format")
         
@@ -63,23 +54,17 @@ def parse_firebase_credentials(env_value: str) -> Optional[Dict[str, Any]]:
         
     except json.JSONDecodeError as e:
         logger.error(f"❌ JSON parse error: {e}")
-        logger.error(f"   Env value starts with: {env_value[:100]}...")
         return None
     except Exception as e:
-        logger.error(f"❌ Credential parsing failed: {type(e).__name__}: {e}")
+        logger.error(f"❌ Credential parsing failed: {e}")
         return None
 
 
 def _fix_private_key(creds: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Fix private_key formatting for RSA authentication.
-    
-    The private_key must have actual newlines, not escaped \\n strings.
-    """
+    """Fix private_key formatting for RSA authentication"""
     key = creds.get('private_key', '')
     
     if not key or '-----BEGIN PRIVATE KEY-----' in key:
-        # Already properly formatted
         return creds
     
     # Fix escaped newlines: \\n → \n → actual newline
@@ -96,75 +81,60 @@ def _fix_private_key(creds: Dict[str, Any]) -> Dict[str, Any]:
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 🗄️ Firebase Initialization (asia-southeast1 Compatible)
+# 🗄️ Firebase Initialization
 # ─────────────────────────────────────────────────────────────────────
 
 def init_firebase() -> bool:
-    """
-    Initialize Firebase Admin SDK with proper region handling.
-    
-    Returns:
-        bool: True if successful, False if falling back to REST API
-    """
+    """Initialize Firebase Admin SDK with asia-southeast1 support"""
     try:
         import firebase_admin
         from firebase_admin import credentials, db
         
-        # Skip if already initialized
         if firebase_admin._apps:
-            logger.info("✅ Firebase Admin SDK already initialized")
+            logger.info("✅ Firebase already initialized")
             return True
         
-        # Get configuration from environment
         db_url = os.environ.get(
             'FIREBASE_DB_URL',
             'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'
         ).rstrip('/')
         
         service_account_raw = os.environ.get('FIREBASE_SERVICE_ACCOUNT', 'skip')
-        
-        # Parse credentials with newline fix
         service_account = parse_firebase_credentials(service_account_raw)
         
         if not service_account:
-            logger.warning("⚠️ Using REST API fallback (no service account)")
+            logger.warning("⚠️ Using REST API fallback")
             return False
         
-        # Create credentials object
         cred = credentials.Certificate(service_account)
         
-        # Initialize with explicit region-specific database URL
         firebase_admin.initialize_app(cred, {
-            'databaseURL': db_url,  # ✅ asia-southeast1 URL
+            'databaseURL': db_url,
             'projectId': service_account.get('project_id'),
         })
         
         # Test connection
         db.reference('.info/serverTimeOffset').get()
         
-        logger.info(f"✅ Firebase Admin SDK initialized")
-        logger.info(f"   📍 Database: {db_url}")
-        logger.info(f"   🆔 Project: {service_account.get('project_id')}")
-        
+        logger.info(f"✅ Firebase Admin SDK initialized | Region: asia-southeast1")
         return True
         
     except ImportError:
         logger.warning("⚠️ firebase-admin not installed, using REST API")
         return False
     except Exception as e:
-        logger.error(f"❌ Firebase init failed: {type(e).__name__}: {e}")
-        logger.error("💡 Falling back to REST API mode")
+        logger.error(f"❌ Firebase init failed: {e}")
         return False
 
 
 # ─────────────────────────────────────────────────────────────────────
-# 🌐 Firebase REST API Fallback (When Admin SDK Fails)
+# 🌐 Firebase REST API Fallback
 # ─────────────────────────────────────────────────────────────────────
 
 import requests
 
 class FirebaseREST:
-    """Simple Firebase REST API client - works without Admin SDK"""
+    """Simple Firebase REST API client"""
     
     def __init__(self, db_url: str):
         self.base_url = db_url.rstrip('/')
@@ -173,22 +143,20 @@ class FirebaseREST:
         try:
             url = f"{self.base_url}/{path}.json"
             headers = {'Content-Type': 'application/json'}
-            timeout = 10
             
             if method == 'GET':
-                resp = requests.get(url, headers=headers, timeout=timeout)
+                resp = requests.get(url, headers=headers, timeout=10)
             elif method == 'PUT':
-                resp = requests.put(url, json=data, headers=headers, timeout=timeout)
+                resp = requests.put(url, json=data, headers=headers, timeout=10)
             elif method == 'PATCH':
-                resp = requests.patch(url, json=data, headers=headers, timeout=timeout)
+                resp = requests.patch(url, json=data, headers=headers, timeout=10)
             elif method == 'POST':
-                resp = requests.post(url, json=data, headers=headers, timeout=timeout)
+                resp = requests.post(url, json=data, headers=headers, timeout=10)
             else:
                 return None
             
             if resp.status_code in [200, 201]:
                 return resp.json()
-            logger.warning(f"Firebase {method} {resp.status_code}: {path}")
             return None
         except Exception as e:
             logger.error(f"Firebase REST error: {e}")
@@ -204,7 +172,7 @@ class FirebaseREST:
         return self._request('PATCH', path, data) is not None
 
 
-# Initialize Firebase (try Admin SDK, fallback to REST)
+# Initialize Firebase
 FIREBASE_MODE = 'admin' if init_firebase() else 'rest'
 logger.info(f"🔗 Firebase mode: {FIREBASE_MODE}")
 
@@ -222,7 +190,7 @@ else:
     def update_user(tid, data): return db.reference(f'users/{tid}').update(data)
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔧 App Configuration
+# 🔧 Configuration
 # ─────────────────────────────────────────────────────────────────────
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '8701635891:AAFmgU89KRhd2dhE-PqRY-mBmGy_SxQEGOg')
@@ -251,7 +219,7 @@ FIREBASE_CONFIG = {
 }
 
 # ─────────────────────────────────────────────────────────────────────
-# 🌐 Flask Application
+# 🌐 Flask App
 # ─────────────────────────────────────────────────────────────────────
 
 from flask import Flask, request, jsonify, render_template_string
@@ -260,115 +228,136 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24).hex()
 
 # ─────────────────────────────────────────────────────────────────────
-# 🎨 Simplified Dashboard HTML
+# 🎨 Complete Dashboard HTML (Inline Template)
 # ─────────────────────────────────────────────────────────────────────
 
 DASHBOARD_HTML = '''<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>💰 Earn Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#667eea">
+<title>💰 Ultimate Media Search</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;color:#fff;padding:20px}
-.card{background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border-radius:20px;padding:20px;margin-bottom:20px}
-.balance{font-size:2.5rem;font-weight:bold;margin:10px 0}
-.btn{background:#fff;color:#667eea;padding:15px;border-radius:12px;border:none;font-weight:bold;width:100%;margin:8px 0;cursor:pointer}
-.btn:disabled{opacity:0.6}
-.task{background:rgba(255,255,255,0.15);padding:15px;border-radius:12px;margin:10px 0;display:flex;justify-content:space-between;align-items:center}
-.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:#48bb78;color:#fff;padding:12px 24px;border-radius:12px;transition:transform 0.3s;z-index:1000}
-.toast.show{transform:translateX(-50%) translateY(0)}
+body{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;color:#fff;padding:20px;padding-bottom:100px}
+.container{max-width:480px;margin:0 auto}
+.card{background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border-radius:20px;padding:20px;margin-bottom:20px;border:1px solid rgba(255,255,255,0.2)}
+.profile-img{width:80px;height:80px;border-radius:50%;border:3px solid #fff;margin:0 auto 15px;display:block;object-fit:cover}
+.welcome-text{font-size:1rem;opacity:0.9;text-align:center}.user-name{font-size:1.5rem;font-weight:bold;text-align:center;margin:5px 0 15px}
+.balance{font-size:2.5rem;font-weight:bold;text-align:center;margin:10px 0}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px}
+.stat-item{background:rgba(255,255,255,0.15);padding:12px;border-radius:12px;text-align:center}
+.stat-value{font-size:1.3rem;font-weight:bold;display:block}.stat-label{font-size:0.75rem;opacity:0.8}
+.card-title{font-size:1.2rem;font-weight:bold;margin-bottom:15px;display:flex;align-items:center;gap:8px}
+.task-list{display:flex;flex-direction:column;gap:10px}
+.task-item{background:rgba(255,255,255,0.15);border-radius:12px;padding:15px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.task-item:active{transform:scale(0.98)}.task-info{display:flex;align-items:center;gap:12px;flex:1}
+.task-icon{width:45px;height:45px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:rgba(255,255,255,0.2)}
+.task-details h3{font-size:0.95rem;margin-bottom:3px}.task-details p{font-size:0.75rem;opacity:0.8}
+.task-reward{background:#48bb78;color:#fff;padding:6px 12px;border-radius:20px;font-size:0.8rem;font-weight:bold}
+.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:1rem;font-weight:bold;cursor:pointer;margin:8px 0;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn:active{transform:scale(0.98)}.btn:disabled{opacity:0.6;cursor:not-allowed}
+.btn-primary{background:#fff;color:#667eea}.btn-secondary{background:rgba(255,255,255,0.2);color:#fff}.btn-success{background:#48bb78;color:#fff}
+#adBtn{background:linear-gradient(135deg,#f093fb,#f5576c);color:#fff;font-size:1.1rem;padding:18px}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:#1a202c;color:#fff;padding:12px 24px;border-radius:12px;font-weight:600;z-index:1000;transition:transform 0.3s;box-shadow:0 10px 40px rgba(0,0,0,0.3);display:flex;align-items:center;gap:8px}
+.toast.show{transform:translateX(-50%) translateY(0)}.toast.success{background:#48bb78}.toast.error{background:#f56565}.toast.info{background:#667eea}
+.progress-container{margin:15px 0}.progress-label{display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:8px}
+.progress-bar{height:10px;background:rgba(255,255,255,0.2);border-radius:10px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#48bb78,#38a169);border-radius:10px;transition:width 0.5s}
+.referral-box{background:rgba(255,255,255,0.1);border-radius:12px;padding:12px;display:flex;gap:8px;margin-top:10px}
+.referral-link{flex:1;background:rgba(0,0,0,0.3);padding:8px 12px;border-radius:8px;font-size:0.75rem;word-break:break-all;font-family:monospace}
+.copy-btn{background:#667eea;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:0.8rem;font-weight:bold;cursor:pointer}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(26,32,44,0.95);backdrop-filter:blur(10px);padding:10px 20px;padding-bottom:max(10px,env(safe-area-inset-bottom));display:flex;justify-content:space-around;border-top:1px solid rgba(255,255,255,0.1)}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 16px;border-radius:12px;cursor:pointer;border:none;background:none;color:#fff}
+.nav-item.active{background:rgba(255,255,255,0.15)}.nav-item .icon{font-size:1.3rem}.nav-item .label{font-size:0.7rem;opacity:0.8}
+::-webkit-scrollbar{width:0}
 </style>
 </head>
 <body>
-<div class="toast" id="toast">✅ Success!</div>
-<div class="card">
-<h1>👋 Welcome, <span id="userName">User</span>!</h1>
+<div class="toast" id="toast"><span id="toastIcon">✅</span><span id="toastMsg">Success!</span></div>
+<div class="container">
+<div class="card" style="text-align:center">
+<img src="{{ banner }}" class="profile-img" id="profileImg">
+<div class="welcome-text">Welcome back,</div>
+<div class="user-name" id="userName">Loading...</div>
 <div class="balance" id="balance">$0.00</div>
-<p>Points: <span id="points">0</span> | Tasks: <span id="tasks">0</span></p>
+<div class="stats-grid">
+<div class="stat-item"><span class="stat-value" id="points">0</span><div class="stat-label">Points</div></div>
+<div class="stat-item"><span class="stat-value" id="tasks">0</span><div class="stat-label">Tasks</div></div>
+<div class="stat-item"><span class="stat-value" id="ads">0</span><div class="stat-label">Ads</div></div>
+<div class="stat-item"><span class="stat-value" id="totalEarned">$0.00</span><div class="stat-label">Total</div></div>
+</div>
 </div>
 <div class="card">
-<h2>💎 Tasks</h2>
-<button class="btn" onclick="watchAd()" id="adBtn">📺 Watch Ad (+25 pts)</button>
-<a href="{{ youtube }}" target="_blank" onclick="claim('youtube')" class="btn" style="text-decoration:none;display:block;text-align:center">▶️ YouTube (+100 pts)</a>
-<a href="{{ instagram }}" target="_blank" onclick="claim('instagram')" class="btn" style="text-decoration:none;display:block;text-align:center">📷 Instagram (+100 pts)</a>
-<a href="{{ facebook }}" target="_blank" onclick="claim('facebook')" class="btn" style="text-decoration:none;display:block;text-align:center">📘 Facebook (+100 pts)</a>
+<div class="card-title">📺 Daily Tasks</div>
+<button class="btn" id="adBtn" onclick="watchAd()"><span>🎬</span><span>Watch Daily Ad</span><span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:8px;font-size:0.85rem">+25</span></button>
+<div class="progress-container"><div class="progress-label"><span>Daily Progress</span><span id="progressText">0 / 2000 ads</span></div><div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div></div>
 </div>
+<div class="card">
+<div class="card-title">📱 Social Tasks</div>
+<div class="task-list">
+<div class="task-item" onclick="claimTask('youtube')"><div class="task-info"><div class="task-icon" style="background:linear-gradient(135deg,#fee2e2,#fecaca)">▶️</div><div class="task-details"><h3>YouTube Subscribe</h3><p>@USSoccerPulse</p></div></div><div class="task-reward">+100</div></div>
+<div class="task-item" onclick="claimTask('instagram')"><div class="task-info"><div class="task-icon" style="background:linear-gradient(135deg,#fce7f3,#fbcfe8)">📷</div><div class="task-details"><h3>Instagram Follow</h3><p>@digital_rockstar_m</p></div></div><div class="task-reward">+100</div></div>
+<div class="task-item" onclick="claimTask('facebook')"><div class="task-info"><div class="task-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe)">📘</div><div class="task-details"><h3>Facebook Like</h3><p>UltimateMediaSearch</p></div></div><div class="task-reward">+100</div></div>
+</div>
+</div>
+<div class="card">
+<div class="card-title">👥 Invite Friends</div>
+<p style="font-size:0.9rem;opacity:0.9;margin-bottom:10px">Earn <strong style="color:#48bb78">+50 points</strong> per friend!</p>
+<div class="referral-box"><div class="referral-link" id="refLink">Loading...</div><button class="copy-btn" onclick="copyReferral()">Copy</button></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px">
+<button class="btn btn-secondary" onclick="shareReferral()">📤 Share</button>
+<button class="btn btn-success" onclick="showReferralStats()">📊 Stats</button>
+</div>
+</div>
+<div class="card">
+<div class="card-title">💰 Withdraw</div>
+<p style="font-size:0.9rem;opacity:0.9;margin-bottom:10px">Minimum: <strong>$1.00</strong> (100 points)</p>
+<button class="btn btn-success" onclick="requestWithdraw()" id="withdrawBtn">Request Withdrawal</button>
+</div>
+</div>
+<nav class="bottom-nav">
+<button class="nav-item active"><span class="icon">🏠</span><span class="label">Home</span></button>
+<button class="nav-item"><span class="icon">📋</span><span class="label">Tasks</span></button>
+<button class="nav-item"><span class="icon">💰</span><span class="label">Earn</span></button>
+<button class="nav-item"><span class="icon">👤</span><span class="label">Profile</span></button>
+</nav>
 <script>
 const FC={{ firebase_config | safe }};firebase.initializeApp(FC);const db=firebase.database();
-const P=new URLSearchParams(location.search);
-let UID=P.get('id')||'123';
-let UNAME=P.get('name')||'User';
-let USER_DATA={};
-document.getElementById('userName').textContent=UNAME;
-
-function loadUser(){
-    db.ref('users/'+UID).on('value',s=>{
-        let d=s.val();
-        if(!d){createUser();return;}
-        USER_DATA=d;
-        updateUI();
-    });
-}
-
-function createUser(){
-    const newUser={uid:UID,name:UNAME,points:0,total_earned:0,ad_views:0,tasks_completed:0,joined_at:Date.now()};
-    db.ref('users/'+UID).set(newUser);
-    USER_DATA=newUser;
-    updateUI();
-}
-
-function updateUI(){
-    const p=USER_DATA.points||0;
-    document.getElementById('balance').textContent='$'+(p/100).toFixed(2);
-    document.getElementById('points').textContent=p;
-    document.getElementById('tasks').textContent=USER_DATA.tasks_completed||0;
-}
-
-async function watchAd(){
-    const btn=document.getElementById('adBtn');
-    btn.disabled=true;
-    btn.textContent='⏳ Watching...';
-    window.open('{{ ad_link }}','_blank');
-    
-    setTimeout(async()=>{
-        try{
-            await db.ref('users/'+UID).update({
-                points:(USER_DATA.points||0)+25,
-                total_earned:(USER_DATA.total_earned||0)+25,
-                ad_views:(USER_DATA.ad_views||0)+1
-            });
-            showToast('🎉 +25 Points!');
-            loadUser();
-        }catch(e){showToast('Error: '+e.message);}
-        btn.disabled=false;
-        btn.textContent='📺 Watch Ad (+25 pts)';
-    },30000);
-}
-
-async function claim(plat){
-    try{
-        await db.ref('users/'+UID).update({
-            points:(USER_DATA.points||0)+100,
-            total_earned:(USER_DATA.total_earned||0)+100,
-            tasks_completed:(USER_DATA.tasks_completed||0)+1
-        });
-        showToast('🎉 +100 Points!');
-        loadUser();
-    }catch(e){showToast('Error: '+e.message);}
-}
-
-function showToast(m){
-    const t=document.getElementById('toast');
-    t.textContent=m;
-    t.className='toast show';
-    setTimeout(()=>t.className='toast',3000);
-}
-
-loadUser();
+const CFG={POINTS_PER_DOLLAR:100,AD_POINTS:25,SOCIAL_POINTS:100,REFERRAL_BONUS:50,DAILY_AD_TARGET:2000,AD_LINK:'{{ ad_link }}',YOUTUBE:'{{ youtube }}',INSTAGRAM:'{{ instagram }}',FACEBOOK:'{{ facebook }}'};
+const P=new URLSearchParams(location.search);let UID=P.get('id')||(window.Telegram?.WebApp?.initDataUnsafe?.user?.id)||'123';let UNAME=P.get('name')||(window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name)||'User';let USER_DATA={};let CLAIMED=JSON.parse(localStorage.getItem('c_'+UID)||'{}');
+const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();}
+document.addEventListener('DOMContentLoaded',()=>{document.getElementById('userName').textContent=UNAME;loadUser();});
+function loadUser(){db.ref('users/'+UID).on('value',s=>{let d=s.val();if(!d){createUser();return;}USER_DATA=d;updateUI();});}
+function createUser(){const ts=Date.now();const rc='UMS'+String(UID).slice(-6).toUpperCase();const newUser={uid:UID,name:UNAME,username:UNAME,referral_code:rc,points:0,total_earned:0,ad_views:0,tasks_completed:0,joined_at:ts,last_active:ts,last_ad_date:'',daily_ad_completed:false};db.ref('users/'+UID).set(newUser);USER_DATA=newUser;updateUI();showToast('🎉 Welcome!','success');}
+function updateUI(){const p=USER_DATA.points||0;const bal=(p/CFG.POINTS_PER_DOLLAR).toFixed(2);const total=((USER_DATA.total_earned||0)/CFG.POINTS_PER_DOLLAR).toFixed(2);const ads=USER_DATA.ad_views||0;const prog=Math.min((ads/CFG.DAILY_AD_TARGET)*100,100);
+document.getElementById('balance').textContent='$'+bal;document.getElementById('points').textContent=p.toLocaleString();document.getElementById('tasks').textContent=USER_DATA.tasks_completed||0;document.getElementById('ads').textContent=ads.toLocaleString();document.getElementById('totalEarned').textContent='$'+total;
+document.getElementById('progressFill').style.width=prog+'%';document.getElementById('progressText').textContent=ads.toLocaleString()+' / '+CFG.DAILY_AD_TARGET.toLocaleString()+' ads';
+const rc=USER_DATA.referral_code||'UMS'+String(UID).slice(-6).toUpperCase();document.getElementById('refLink').textContent='https://t.me/UltimateMediaSearchBot?start='+rc;
+const today=new Date().toDateString();const lastAd=USER_DATA.last_ad_date||'';const btn=document.getElementById('adBtn');
+if(lastAd===today){btn.disabled=true;btn.innerHTML='<span>✅</span><span>Daily Ad Completed</span>';}else{btn.disabled=false;btn.innerHTML='<span>🎬</span><span>Watch Daily Ad</span><span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:8px;font-size:0.85rem">+25</span>';}}
+async function watchAd(){const today=new Date().toDateString();if((USER_DATA.last_ad_date||'')===today){showToast('⚠️ Already completed today!','info');return;}
+const btn=document.getElementById('adBtn');btn.disabled=true;window.open(CFG.AD_LINK,'_blank');let s=30;btn.innerHTML='<span>⏳</span><span>Wait '+s+'s...</span>';
+const timer=setInterval(async()=>{s--;btn.innerHTML='<span>⏳</span><span>Wait '+s+'s...</span>';if(s<=0){clearInterval(timer);
+try{await db.ref('users/'+UID).update({ad_views:(USER_DATA.ad_views||0)+1,points:(USER_DATA.points||0)+CFG.AD_POINTS,total_earned:(USER_DATA.total_earned||0)+CFG.AD_POINTS,last_ad_date:today,daily_ad_completed:true,last_active:Date.now()});
+showToast('🎉 +'+CFG.AD_POINTS+' Points!','success');btn.innerHTML='<span>✅</span><span>Claimed!</span>';}catch(e){showToast('❌ Failed','error');btn.disabled=false;}
+}},1000);}
+async function claimTask(plat){const key=plat+'_task';if(CLAIMED[key]){showToast('✅ Already claimed!','info');return;}
+const links={youtube:CFG.YOUTUBE,instagram:CFG.INSTAGRAM,facebook:CFG.FACEBOOK};window.open(links[plat],'_blank');
+try{await db.ref('users/'+UID).update({points:(USER_DATA.points||0)+CFG.SOCIAL_POINTS,total_earned:(USER_DATA.total_earned||0)+CFG.SOCIAL_POINTS,tasks_completed:(USER_DATA.tasks_completed||0)+1,last_active:Date.now(),['social_tasks/'+plat]:{completed:true,completed_at:Date.now()}});
+CLAIMED[key]=true;localStorage.setItem('c_'+UID,JSON.stringify(CLAIMED));showToast('🎉 +'+CFG.SOCIAL_POINTS+' Points!','success');}catch(e){showToast('❌ Failed','error');}}
+function copyReferral(){navigator.clipboard.writeText(document.getElementById('refLink').textContent).then(()=>showToast('🔗 Copied!','success'));}
+function shareReferral(){const l=document.getElementById('refLink').textContent;const t='🎁 Join me! Earn money watching ads: '+l;if(tg)tg.openTelegramLink('https://t.me/share/url?url='+encodeURIComponent(l)+'&text='+encodeURIComponent(t));else window.open('https://t.me/share/url?url='+encodeURIComponent(l)+'&text='+encodeURIComponent(t),'_blank');}
+function showReferralStats(){const rc=USER_DATA.referral_count||0;const earn=rc*CFG.REFERRAL_BONUS;showToast('📊 Referrals: '+rc+' | Points: '+earn,'info');}
+async function requestWithdraw(){const p=USER_DATA.points||0;if(p<CFG.POINTS_PER_DOLLAR){showToast('💰 Need 100 points ($1)!','error');return;}
+const usd=(p/CFG.POINTS_PER_DOLLAR).toFixed(2);if(confirm('Withdraw $'+usd+'?')){try{await db.ref('withdrawals/'+UID+'/'+Date.now()).set({amount:p,usd:usd,status:'pending',requested_at:Date.now()});
+await db.ref('users/'+UID).update({points:0,total_withdrawn:(USER_DATA.total_withdrawn||0)+p,pending_withdrawal:true});showToast('✅ Withdrawal submitted! 24-48h','success');}catch(e){showToast('❌ Failed','error');}}}
+function showToast(m,t='success'){const icons={success:'✅',error:'❌',info:'ℹ️'};document.getElementById('toastIcon').textContent=icons[t]||'✅';document.getElementById('toastMsg').textContent=m;
+const el=document.getElementById('toast');el.className='toast '+t+' show';setTimeout(()=>el.className='toast',3500);if(tg?.HapticFeedback)tg.HapticFeedback.notificationOccurred(t==='success'?'success':'error');}
 </script>
 </body>
 </html>'''
@@ -380,18 +369,15 @@ loadUser();
 @app.route('/')
 def root():
     return '''<html><body style="background:#1a202c;color:#fff;text-align:center;padding:40px;font-family:sans-serif">
-    <h1>🤖 Ultimate Media Search Bot</h1>
-    <p style="color:#94a3b8;margin:20px 0">Server is running! ✅</p>
+    <h1>🤖 Ultimate Media Search Bot</h1><p style="color:#94a3b8;margin:20px 0">Server running! ✅</p>
     <a href="/dashboard?id=123&name=Test" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:600">🚀 Open Dashboard</a>
-    <p style="margin-top:30px;font-size:0.9rem;color:#64748b">Firebase Mode: {{ firebase_mode }}</p>
-    </body></html>'''.replace('{{ firebase_mode }}', FIREBASE_MODE)
+    <p style="margin-top:30px;font-size:0.9rem;color:#64748b">Firebase: {{ mode }}</p></body></html>'''.replace('{{ mode }}', FIREBASE_MODE)
 
 @app.route('/dashboard')
 def dashboard():
     tid = request.args.get('id', '123')
     name = request.args.get('name', 'User')
     
-    # Create user if not exists
     try:
         if not get_user(tid):
             timestamp = int(time.time() * 1000)
@@ -411,7 +397,8 @@ def dashboard():
         youtube=APP_CONFIG['YOUTUBE'],
         instagram=APP_CONFIG['INSTAGRAM'],
         facebook=APP_CONFIG['FACEBOOK'],
-        ad_link=APP_CONFIG['AD_LINK']
+        ad_link=APP_CONFIG['AD_LINK'],
+        banner=APP_CONFIG['BANNER']
     )
 
 @app.route('/health')
@@ -448,7 +435,6 @@ if bot:
             uid = msg.from_user.id
             name = msg.from_user.first_name or 'User'
             
-            # Create/update user
             try:
                 if not get_user(uid):
                     set_user(uid, {
@@ -490,7 +476,7 @@ if bot:
             bot.send_message(msg.chat.id, "⚠️ Error. Try /start again.")
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔗 Webhook & Entry Point
+# 🔗 Webhook & Entry
 # ─────────────────────────────────────────────────────────────────────
 
 @app.route('/webhook', methods=['POST'])
