@@ -1,7 +1,7 @@
 """
 🤖 Ultimate Media Search Bot - Complete Vercel-Ready Solution
 ✅ Single File: api/index.py
-✅ Premium /start Welcome Message + Image
+✅ Custom Hindi/English Welcome Message + Image
 ✅ Firebase asia-southeast1 + Vercel Env Var Handling
 ✅ Mobile-Responsive Dashboard
 ✅ Auto Webhook Setup
@@ -16,6 +16,7 @@ import hashlib
 import secrets
 from datetime import datetime
 from typing import Optional, Dict, Any
+import requests
 
 # ─────────────────────────────────────────────────────────────────────
 # 🔧 Logging Setup
@@ -91,7 +92,6 @@ def init_firebase() -> bool:
 FIREBASE_MODE = 'admin' if init_firebase() else 'rest'
 logger.info(f"🔗 Firebase mode: {FIREBASE_MODE}")
 
-import requests
 class FirebaseREST:
     def __init__(self, url): self.base = url.rstrip('/')
     def _req(self, method, path, data=None):
@@ -126,7 +126,9 @@ APP_CONFIG = {
     'YOUTUBE': 'https://youtube.com/@USSoccerPulse',
     'INSTAGRAM': 'https://instagram.com/digital_rockstar_m',
     'FACEBOOK': 'https://www.facebook.com/UltimateMediaSearch',
-    'BANNER': 'https://i.ibb.co/9kmTw4Gh/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg'
+    'BANNER': 'https://i.ibb.co/9kmTw4Gh/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg',
+    'SUPPORT_LINK': 'https://t.me/YourSupportUsername',  # 🔁 Change this
+    'COMMUNITY_LINK': 'https://t.me/YourCommunityLink'    # 🔁 Change this
 }
 
 FIREBASE_CONFIG = {
@@ -278,7 +280,7 @@ const el=document.getElementById('toast');el.className='toast '+t+' show';setTim
 </html>'''
 
 # ─────────────────────────────────────────────────────────────────────
-# 🌐 Routes
+# 🌐 Flask Routes
 # ─────────────────────────────────────────────────────────────────────
 @app.route('/')
 def root():
@@ -306,7 +308,7 @@ def health():
 def favicon(): return '', 204
 
 # ─────────────────────────────────────────────────────────────────────
-# 🤖 Telegram Bot & /start Handler
+# 🤖 Telegram Bot & Handlers
 # ─────────────────────────────────────────────────────────────────────
 try:
     import telebot
@@ -326,39 +328,116 @@ if bot:
             dashboard_url = f"{VERCEL_DOMAIN}/dashboard?id={uid}&name={name}"
             
             welcome_text = f"""
-🌟 <b>Welcome to Ultimate Media Search!</b> 🌟
+✨ <b>Welcome to UltimateMediaSearchBot!</b> ✨
 
- 👋 Hello <b>{name}</b>!
+🇳 <b>India’s #1 Destination for Earning & Social Media Growth.</b>
 
-💬 <i>"Your smartphone is now your ATM. Stop scrolling for free—start earning for your time!"</i> 💰✨
+Namaste! 🙏 Aapne sahi jagah kadam rakha hai. Chahe aap extra income kamana chahte ho ya apne brand ki reach badhana, hum aapke saath hain.
 
-🎁 <b>How to Earn:</b>
-├ 📺 Watch Ads → +{APP_CONFIG['AD_POINTS']} Points
-├ 📱 Social Tasks → +{APP_CONFIG['SOCIAL_POINTS']} Points  
-├ 👥 Refer Friends → +{APP_CONFIG['REFERRAL_BONUS']} Points
-└ 💰 <b>{APP_CONFIG['POINTS_PER_DOLLAR']} Points = $1.00 USD</b>
+━━━━━━━━━━━━━━━━━━━━
 
- All earnings are secure & auto-tracked.
-🚀 Tap below to open your Premium Dashboard!
+💰 <b>EARNING DHAMAKA (Subscription: ₹100)</b>
+
+Ab apne mobile ka sahi istemal karein aur rozana kamayein!
+
+✅ <b>VIP Tasks:</b> High-paying social media tasks unlock karein.
+✅ <b>Fast Payout:</b> Apni mehnat ki kamayi turant withdraw karein.
+✅ <b>Refer & Earn:</b> Doston ko join karayein aur lifetime 10% commission payein.
+
+<b>Start earning by completing these tasks:</b>
+1️⃣ <b>YouTube:</b> <a href="{APP_CONFIG['YOUTUBE']}">Channel Link</a>
+2️⃣ <b>Instagram:</b> <a href="{APP_CONFIG['INSTAGRAM']}">Profile Link</a>
+3️⃣ <b>Facebook:</b> <a href="{APP_CONFIG['FACEBOOK']}">Official Profile</a>
+
+━━━━━━━━━━━━━━━━━━━━
+
+📢 <b>PROMOTION HUB (Plan: ₹500)</b>
+
+Kya aap apna YouTube, Instagram ya Facebook viral karna chahte hain?
+
+🚀 <b>Real Traffic:</b> Koi bot nahi, sirf asli users.
+🚀 <b>Instant Reach:</b> Apne link par dheron likes aur followers payein.
+🔗 <b>Join our Network:</b> <a href="{APP_CONFIG['COMMUNITY_LINK']}">UltimateMediaSearch Community</a>
+
+━━━━━━━━━━━━━━━━━━━━
+
+🔥 <b>AAJ KA MOTIVATION</b>
+
+<i>"Zamaana badal raha hai, ab mehnat ke saath-saath smart work karne ka time hai. Aaj ka ₹100 ka chota sa investment aapki kal ki badi kamyabi ban sakta hai. Der mat kijiye!"</i>
+
+━━━━━━━━━━━━━━━━━━━━
+
+👇 <b>Neeche diye gaye buttons par click karke shuru karein!</b>
             """
             
-            markup = types.InlineKeyboardMarkup(row_width=1)
+            markup = types.InlineKeyboardMarkup(row_width=2)
             markup.add(
-                types.InlineKeyboardButton("🚀 Open Premium Dashboard", url=dashboard_url),
-                types.InlineKeyboardButton("📢 Join Updates Channel", url="https://t.me/YourChannelLink")
+                types.InlineKeyboardButton("💰 Earn Points", url=dashboard_url),
+                types.InlineKeyboardButton("📊 My Dashboard", url=dashboard_url)
+            )
+            markup.add(
+                types.InlineKeyboardButton("⭐ Buy ₹100 Plan", callback_data="plan_100"),
+                types.InlineKeyboardButton("🚀 Buy ₹500 Plan", callback_data="plan_500")
+            )
+            markup.add(
+                types.InlineKeyboardButton("📺 Watch Ad", url=APP_CONFIG['AD_LINK']),
+                types.InlineKeyboardButton("💬 Support", url=APP_CONFIG['SUPPORT_LINK'])
             )
             
             try:
                 bot.send_photo(message.chat.id, photo=APP_CONFIG['BANNER'], caption=welcome_text, reply_markup=markup)
-            except:
-                bot.send_message(message.chat.id, welcome_text + f"\n\n🖼️ <a href='{APP_CONFIG['BANNER']}'>View Banner</a>", reply_markup=markup)
+            except Exception as e:
+                logger.error(f"Send photo error: {e}")
+                bot.send_message(message.chat.id, welcome_text + f"\n\n🖼️ <a href='{APP_CONFIG['BANNER']}'>View Welcome Banner</a>", reply_markup=markup)
+                
         except Exception as e:
-            logger.error(f"Start error: {e}")
-            bot.send_message(message.chat.id, "⚠️ Error. Try /start again.")
+            logger.error(f"Start command error: {e}")
+            bot.send_message(message.chat.id, "⚠️ Something went wrong. Please try /start again.")
 
-    @bot.callback_query_handler(func=lambda c: True)
-    def handle_callbacks(call):
-        bot.answer_callback_query(call.id)
+    @bot.callback_query_handler(func=lambda call: call.data.startswith('plan_'))
+    def handle_plan_selection(call):
+        try:
+            plan_type = call.data.split('_')[1]
+            if plan_type == '100':
+                title = "⭐ EARNING BOOSTER (₹100)"
+                desc = """
+✅ VIP Tasks Access
+✅ 2x Points on Every Task
+✅ Fast Withdrawal (Instant)
+✅ Daily Bonus: 50 Points
+✅ Refer Commission: 15%
+                """
+            else:
+                title = "🚀 PROMOTION HUB (₹500)"
+                desc = """
+✅ Promote Your Social Media
+✅ Real Users Engagement
+✅ 1000+ Followers/Likes
+✅ Priority Support
+✅ Lifetime Validity
+                """
+            
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            markup.add(types.InlineKeyboardButton("💳 Pay Now via UPI", callback_data=f"pay_{plan_type}"))
+            markup.add(types.InlineKeyboardButton("📞 Contact Admin", url=APP_CONFIG['SUPPORT_LINK']))
+            markup.add(types.InlineKeyboardButton("🔙 Back", callback_data="back_to_menu"))
+            
+            bot.edit_message_text(
+                f"<b>{title}</b>\n\n{desc}\n\n📩 Payment karne ke baad screenshot admin ko bhejein.",
+                call.message.chat.id, call.message.message_id,
+                reply_markup=markup, parse_mode="HTML"
+            )
+            bot.answer_callback_query(call.id)
+        except Exception as e:
+            logger.error(f"Plan selection error: {e}")
+            bot.answer_callback_query(call.id, "Error loading plan", show_alert=True)
+
+    @bot.callback_query_handler(func=lambda call: call.data == 'back_to_menu')
+    def handle_back_to_menu(call):
+        try:
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            handle_start(call.message)
+        except: pass
 
 # ─────────────────────────────────────────────────────────────────────
 # 🔗 Webhook & Auto-Setup
