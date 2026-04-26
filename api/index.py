@@ -1,6 +1,6 @@
 """
 🤖 Ultimate Media Search Bot - Production Ready
-✅ Vercel Serverless Compatible
+✅ Fixed: Payment Error Logic
 ✅ UPI Direct Payment Integration
 ✅ DeepSeek AI Chat API
 ✅ Full Admin Panel Control
@@ -24,7 +24,7 @@ from flask import Flask, request, jsonify, render_template
 # ─────────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
 logger = logging.getLogger(__name__)
-logger.info("🚀 Starting Ultimate Media Search Bot v3.0...")
+logger.info("🚀 Starting Ultimate Media Search Bot v3.1 (Fixed Payment)...")
 
 # ─────────────────────────────────────────────────────────────────────
 # 🔐 Utils
@@ -50,28 +50,48 @@ def parse_firebase_creds(env_val: str) -> Optional[Dict]:
         logger.error(f"❌ Firebase creds parse failed: {e}")
         return None
 
+FIREBASE_MODE = 'unknown'
+db = None
+firebase_db = None
+
 def init_firebase() -> bool:
+    global FIREBASE_MODE, db, firebase_db
     try:
         import firebase_admin
-        from firebase_admin import credentials, db
-        if firebase_admin._apps: return True
+        from firebase_admin import credentials
+        
+        if firebase_admin._apps: 
+            FIREBASE_MODE = 'admin'
+            from firebase_admin import db as fb_db
+            db = fb_db
+            return True
+            
         db_url = os.environ.get('FIREBASE_DB_URL', 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/').rstrip('/')
         sa = parse_firebase_creds(os.environ.get('FIREBASE_SERVICE_ACCOUNT', 'skip'))
+        
         if not sa:
             logger.warning("⚠️ No service account, using REST fallback")
+            FIREBASE_MODE = 'rest'
             return False
+            
         firebase_admin.initialize_app(credentials.Certificate(sa), {'databaseURL': db_url, 'projectId': sa.get('project_id')})
+        from firebase_admin import db as fb_db
+        db = fb_db
+        FIREBASE_MODE = 'admin'
         logger.info("✅ Firebase Admin SDK initialized")
         return True
     except ImportError:
         logger.warning("⚠️ firebase-admin missing, using REST")
+        FIREBASE_MODE = 'rest'
         return False
     except Exception as e:
         logger.error(f"❌ Firebase init failed: {e}")
+        FIREBASE_MODE = 'rest'
         return False
 
-FIREBASE_MODE = 'admin' if init_firebase() else 'rest'
+init_firebase()
 
+# REST Fallback Class
 class FirebaseREST:
     def __init__(self, url): self.base = url.rstrip('/')
     def _req(self, method, path, data=None):
@@ -83,7 +103,8 @@ class FirebaseREST:
     def set(self, p, d): return self._req('PUT', p, d) is not None
     def update(self, p, d): return self._req('PATCH', p, d) is not None
 
-firebase_db = FirebaseREST(os.environ.get('FIREBASE_DB_URL', 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/')) if FIREBASE_MODE == 'rest' else None
+if FIREBASE_MODE == 'rest':
+    firebase_db = FirebaseREST(os.environ.get('FIREBASE_DB_URL', 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'))
 
 def get_user(tid): return firebase_db.get(f'users/{tid}') if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').get()
 def set_user(tid, d): return firebase_db.set(f'users/{tid}', d) if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').set(d)
@@ -280,26 +301,58 @@ Kya aap apna YouTube, Instagram ya Facebook viral karna chahte hain?
             plan = call.data.split('_')[1]
             amount = 100 if plan == '100' else 500
             user_id = call.from_user.id
+            username = call.from_user.username or 'Unknown'
+            
+            # Generate Direct UPI Link
             upi_link = f"upi://pay?pa={APP_CONFIG['UPI_ID']}&pn={APP_CONFIG['UPI_NAME']}&am={amount}&cu=INR&tn=Plan:{plan}-User:{user_id}"
             
-            payment_data = {'user_id': user_id, 'username': call.from_user.username or 'Unknown', 'amount': amount, 'plan': f'plan_{plan}', 'status': 'pending', 'timestamp': int(time.time() * 1000), 'upi_link': upi_link}
-            try:
-                db.reference(f'payments/{user_id}/{int(time.time() * 1000)}').set(payment_data)
-            except:
-                firebase_db.set(f'payments/{user_id}/{int(time.time() * 1000)}', payment_data)
+            # Prepare Data
+            payment_data = {
+                'user_id': user_id,
+                'username': username,
+                'amount': amount,
+                'plan': f'plan_{plan}',
+                'status': 'pending',
+                'timestamp': int(time.time() * 1000),
+                'upi_link': upi_link
+            }
             
+            # ✅ FIXED: Safe Database Save
+            # This block will NOT crash the bot if DB fails.
+            try:
+                if FIREBASE_MODE == 'admin' and db is not None:
+                    db.reference(f'payments/{user_id}/{int(time.time() * 1000)}').set(payment_data)
+                elif FIREBASE_MODE == 'rest' and firebase_db is not None:
+                    firebase_db.set(f'payments/{user_id}/{int(time.time() * 1000)}', payment_data)
+                logger.info(f"✅ Payment request saved for user {user_id}")
+            except Exception as db_err:
+                # Log error but continue - User MUST get the link
+                logger.error(f"⚠️ DB Save Warning (Ignoring): {db_err}")
+            
+            # Send payment message with UPI link
             markup = types.InlineKeyboardMarkup(row_width=1)
             markup.add(types.InlineKeyboardButton("💳 Pay Now via UPI", url=upi_link))
             markup.add(types.InlineKeyboardButton("📞 Contact Admin", url=APP_CONFIG['SUPPORT_LINK']))
             
             plan_name = "₹100 - Earning Booster" if plan == '100' else "₹500 - Promotion Hub"
+            
             bot.edit_message_text(
-                f"💳 <b>Payment Details</b>\n\nPlan: {plan_name}\nAmount: ₹{amount}\n\nUPI ID: <code>{APP_CONFIG['UPI_ID']}</code>\n\n✅ Direct UPI payment link neeche hai:\n🔗 <a href='{upi_link}'>Click here to Pay</a>\n\n📱 Ya UPI app mein ye ID daalein:\n<code>{APP_CONFIG['UPI_ID']}</code>\n\n✅ Payment ke baad screenshot admin ko bhejein.",
-                call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML"
+                f"💳 <b>Payment Details</b>\n\n"
+                f"Plan: {plan_name}\n"
+                f"Amount: ₹{amount}\n\n"
+                f"UPI ID: <code>{APP_CONFIG['UPI_ID']}</code>\n\n"
+                f"✅ Direct UPI payment link neeche hai:\n"
+                f"🔗 <a href='{upi_link}'>Click here to Pay</a>\n\n"
+                f"📱 Ya UPI app mein ye ID daalein:\n<code>{APP_CONFIG['UPI_ID']}</code>\n\n"
+                f"✅ Payment ke baad screenshot admin ko bhejein.",
+                call.message.chat.id, call.message.message_id,
+                reply_markup=markup, parse_mode="HTML"
             )
             bot.answer_callback_query(call.id)
+            
         except Exception as e:
             logger.error(f"Buy plan error: {e}")
+            # Fallback message in case of total crash
             bot.answer_callback_query(call.id, "Error processing payment", show_alert=True)
 
 # ─────────────────────────────────────────────────────────────────────
