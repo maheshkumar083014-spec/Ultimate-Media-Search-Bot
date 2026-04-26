@@ -1,9 +1,10 @@
 """
 🤖 Ultimate Media Search Bot - Complete Vercel-Ready Solution
-✅ Firebase asia-southeast1 compatible
-✅ Private key newline fix for Vercel env vars
-✅ Telegram Bot + Flask + Dashboard in single file
-✅ No more "Unauthorized" errors!
+✅ Single File: api/index.py
+✅ Premium /start Welcome Message + Image
+✅ Firebase asia-southeast1 + Vercel Env Var Handling
+✅ Mobile-Responsive Dashboard
+✅ Auto Webhook Setup
 """
 
 import os
@@ -17,9 +18,8 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔧 Logging Setup (Must be first)
+# 🔧 Logging Setup
 # ─────────────────────────────────────────────────────────────────────
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -30,177 +30,98 @@ logger = logging.getLogger(__name__)
 logger.info("🚀 Starting Ultimate Media Search Bot...")
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔐 Firebase Service Account Parser (FIXES UNAUTHORIZED ERROR)
+# 🔐 Firebase Credential Parser (Fixes Vercel Newline Issue)
 # ─────────────────────────────────────────────────────────────────────
-
 def parse_firebase_credentials(env_value: str) -> Optional[Dict[str, Any]]:
-    """
-    Parse Firebase Service Account JSON from Vercel environment variable.
-    🔥 CRITICAL: Fixes private_key newline issues
-    """
     if not env_value or env_value == 'skip':
         logger.warning("⚠️ FIREBASE_SERVICE_ACCOUNT not set")
         return None
-    
     try:
         if isinstance(env_value, dict):
             return _fix_private_key(env_value)
-        
         creds = json.loads(env_value)
         if not isinstance(creds, dict) or 'private_key' not in creds:
-            raise ValueError("Invalid service account format")
-        
+            raise ValueError("Invalid format")
         return _fix_private_key(creds)
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"❌ JSON parse error: {e}")
-        return None
     except Exception as e:
-        logger.error(f"❌ Credential parsing failed: {e}")
+        logger.error(f"❌ Credential parse failed: {e}")
         return None
-
 
 def _fix_private_key(creds: Dict[str, Any]) -> Dict[str, Any]:
-    """Fix private_key formatting for RSA authentication"""
     key = creds.get('private_key', '')
-    
     if not key or '-----BEGIN PRIVATE KEY-----' in key:
         return creds
-    
-    # Fix escaped newlines: \\n → \n → actual newline
     key = key.replace('\\\\n', '\n').replace('\\n', '\n')
-    
-    # Ensure proper PEM format
     if not key.strip().startswith('-----BEGIN PRIVATE KEY-----'):
         key = '-----BEGIN PRIVATE KEY-----\n' + key.strip()
     if not key.strip().endswith('-----END PRIVATE KEY-----'):
         key = key.strip() + '\n-----END PRIVATE KEY-----\n'
-    
     creds['private_key'] = key
     return creds
 
-
 # ─────────────────────────────────────────────────────────────────────
-# 🗄️ Firebase Initialization
+# 🗄️ Firebase Initialization & REST Fallback
 # ─────────────────────────────────────────────────────────────────────
-
 def init_firebase() -> bool:
-    """Initialize Firebase Admin SDK with asia-southeast1 support"""
     try:
         import firebase_admin
         from firebase_admin import credentials, db
-        
         if firebase_admin._apps:
-            logger.info("✅ Firebase already initialized")
             return True
-        
-        db_url = os.environ.get(
-            'FIREBASE_DB_URL',
-            'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/'
-        ).rstrip('/')
-        
-        service_account_raw = os.environ.get('FIREBASE_SERVICE_ACCOUNT', 'skip')
-        service_account = parse_firebase_credentials(service_account_raw)
-        
-        if not service_account:
+        db_url = os.environ.get('FIREBASE_DB_URL', 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/').rstrip('/')
+        sa_raw = os.environ.get('FIREBASE_SERVICE_ACCOUNT', 'skip')
+        sa = parse_firebase_credentials(sa_raw)
+        if not sa:
             logger.warning("⚠️ Using REST API fallback")
             return False
-        
-        cred = credentials.Certificate(service_account)
-        
-        firebase_admin.initialize_app(cred, {
+        firebase_admin.initialize_app(credentials.Certificate(sa), {
             'databaseURL': db_url,
-            'projectId': service_account.get('project_id'),
+            'projectId': sa.get('project_id')
         })
-        
-        # Test connection
         db.reference('.info/serverTimeOffset').get()
-        
-        logger.info(f"✅ Firebase Admin SDK initialized | Region: asia-southeast1")
+        logger.info("✅ Firebase Admin SDK initialized (asia-southeast1)")
         return True
-        
     except ImportError:
-        logger.warning("⚠️ firebase-admin not installed, using REST API")
+        logger.warning("⚠️ firebase-admin missing, using REST")
         return False
     except Exception as e:
         logger.error(f"❌ Firebase init failed: {e}")
         return False
 
-
-# ─────────────────────────────────────────────────────────────────────
-# 🌐 Firebase REST API Fallback
-# ─────────────────────────────────────────────────────────────────────
-
-import requests
-
-class FirebaseREST:
-    """Simple Firebase REST API client"""
-    
-    def __init__(self, db_url: str):
-        self.base_url = db_url.rstrip('/')
-    
-    def _request(self, method: str, path: str, data: Any = None) -> Any:
-        try:
-            url = f"{self.base_url}/{path}.json"
-            headers = {'Content-Type': 'application/json'}
-            
-            if method == 'GET':
-                resp = requests.get(url, headers=headers, timeout=10)
-            elif method == 'PUT':
-                resp = requests.put(url, json=data, headers=headers, timeout=10)
-            elif method == 'PATCH':
-                resp = requests.patch(url, json=data, headers=headers, timeout=10)
-            elif method == 'POST':
-                resp = requests.post(url, json=data, headers=headers, timeout=10)
-            else:
-                return None
-            
-            if resp.status_code in [200, 201]:
-                return resp.json()
-            return None
-        except Exception as e:
-            logger.error(f"Firebase REST error: {e}")
-            return None
-    
-    def get(self, path: str) -> Any:
-        return self._request('GET', path)
-    
-    def set(self, path: str, data: Any) -> bool:
-        return self._request('PUT', path, data) is not None
-    
-    def update(self, path: str, data: Dict) -> bool:
-        return self._request('PATCH', path, data) is not None
-
-
-# Initialize Firebase
 FIREBASE_MODE = 'admin' if init_firebase() else 'rest'
 logger.info(f"🔗 Firebase mode: {FIREBASE_MODE}")
 
-if FIREBASE_MODE == 'rest':
-    firebase_db = FirebaseREST(
-        os.environ.get('FIREBASE_DB_URL', 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/')
-    )
-    def get_user(tid): return firebase_db.get(f'users/{tid}')
-    def set_user(tid, data): return firebase_db.set(f'users/{tid}', data)
-    def update_user(tid, data): return firebase_db.update(f'users/{tid}', data)
-else:
-    from firebase_admin import db
-    def get_user(tid): return db.reference(f'users/{tid}').get()
-    def set_user(tid, data): return db.reference(f'users/{tid}').set(data)
-    def update_user(tid, data): return db.reference(f'users/{tid}').update(data)
+import requests
+class FirebaseREST:
+    def __init__(self, url): self.base = url.rstrip('/')
+    def _req(self, method, path, data=None):
+        try:
+            r = requests.request(method, f"{self.base}/{path}.json", json=data, headers={'Content-Type':'application/json'}, timeout=10)
+            return r.json() if r.status_code in [200,201] else None
+        except: return None
+    def get(self, p): return self._req('GET', p)
+    def set(self, p, d): return self._req('PUT', p, d) is not None
+    def update(self, p, d): return self._req('PATCH', p, d) is not None
+
+firebase_db = FirebaseREST(os.environ.get('FIREBASE_DB_URL', 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/')) if FIREBASE_MODE == 'rest' else None
+
+def get_user(tid):
+    return firebase_db.get(f'users/{tid}') if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').get()
+def set_user(tid, d):
+    return firebase_db.set(f'users/{tid}', d) if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').set(d)
+def update_user(tid, d):
+    return firebase_db.update(f'users/{tid}', d) if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').update(d)
 
 # ─────────────────────────────────────────────────────────────────────
 # 🔧 Configuration
 # ─────────────────────────────────────────────────────────────────────
-
 BOT_TOKEN = os.environ.get('BOT_TOKEN', '8701635891:AAFmgU89KRhd2dhE-PqRY-mBmGy_SxQEGOg')
+VERCEL_DOMAIN = os.environ.get('VERCEL_URL', 'ultimate-media-search-bot.vercel.app')
+if not VERCEL_DOMAIN.startswith('https://'): VERCEL_DOMAIN = f"https://{VERCEL_DOMAIN}"
 
 APP_CONFIG = {
-    'POINTS_PER_DOLLAR': 100,
-    'AD_POINTS': 25,
-    'SOCIAL_POINTS': 100,
-    'REFERRAL_BONUS': 50,
-    'MIN_WITHDRAW': 100,
+    'POINTS_PER_DOLLAR': 100, 'AD_POINTS': 25, 'SOCIAL_POINTS': 100,
+    'REFERRAL_BONUS': 50, 'MIN_WITHDRAW': 100,
     'AD_LINK': 'https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b',
     'YOUTUBE': 'https://youtube.com/@USSoccerPulse',
     'INSTAGRAM': 'https://instagram.com/digital_rockstar_m',
@@ -219,17 +140,11 @@ FIREBASE_CONFIG = {
 }
 
 # ─────────────────────────────────────────────────────────────────────
-# 🌐 Flask App
+# 🌐 Flask App & Dashboard HTML
 # ─────────────────────────────────────────────────────────────────────
-
 from flask import Flask, request, jsonify, render_template_string
-
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24).hex()
-
-# ─────────────────────────────────────────────────────────────────────
-# 🎨 Complete Dashboard HTML (Inline Template)
-# ─────────────────────────────────────────────────────────────────────
 
 DASHBOARD_HTML = '''<!DOCTYPE html>
 <html lang="en">
@@ -365,60 +280,34 @@ const el=document.getElementById('toast');el.className='toast '+t+' show';setTim
 # ─────────────────────────────────────────────────────────────────────
 # 🌐 Routes
 # ─────────────────────────────────────────────────────────────────────
-
 @app.route('/')
 def root():
-    return '''<html><body style="background:#1a202c;color:#fff;text-align:center;padding:40px;font-family:sans-serif">
+    return f'''<html><body style="background:#1a202c;color:#fff;text-align:center;padding:40px;font-family:sans-serif">
     <h1>🤖 Ultimate Media Search Bot</h1><p style="color:#94a3b8;margin:20px 0">Server running! ✅</p>
     <a href="/dashboard?id=123&name=Test" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:600">🚀 Open Dashboard</a>
-    <p style="margin-top:30px;font-size:0.9rem;color:#64748b">Firebase: {{ mode }}</p></body></html>'''.replace('{{ mode }}', FIREBASE_MODE)
+    <p style="margin-top:30px;font-size:0.9rem;color:#64748b">Firebase: {FIREBASE_MODE}</p></body></html>'''
 
 @app.route('/dashboard')
 def dashboard():
     tid = request.args.get('id', '123')
     name = request.args.get('name', 'User')
-    
     try:
         if not get_user(tid):
-            timestamp = int(time.time() * 1000)
-            set_user(tid, {
-                'uid': tid, 'name': name, 'username': name,
-                'points': 0, 'total_earned': 0, 'ad_views': 0,
-                'tasks_completed': 0, 'joined_at': timestamp,
-                'last_active': timestamp, 'referral_code': 'UMS' + str(tid)[-6:].upper()
-            })
-            logger.info(f"✅ User created: {tid}")
-    except Exception as e:
-        logger.error(f"User creation error: {e}")
-    
-    return render_template_string(
-        DASHBOARD_HTML,
-        firebase_config=json.dumps(FIREBASE_CONFIG),
-        youtube=APP_CONFIG['YOUTUBE'],
-        instagram=APP_CONFIG['INSTAGRAM'],
-        facebook=APP_CONFIG['FACEBOOK'],
-        ad_link=APP_CONFIG['AD_LINK'],
-        banner=APP_CONFIG['BANNER']
-    )
+            set_user(tid, {'uid':tid,'name':name,'username':name,'points':0,'total_earned':0,'ad_views':0,'tasks_completed':0,'joined_at':int(time.time()*1000),'last_active':int(time.time()*1000),'referral_code':'UMS'+str(tid)[-6:].upper()})
+    except Exception as e: logger.error(f"User creation error: {e}")
+    return render_template_string(DASHBOARD_HTML, firebase_config=json.dumps(FIREBASE_CONFIG), youtube=APP_CONFIG['YOUTUBE'], instagram=APP_CONFIG['INSTAGRAM'], facebook=APP_CONFIG['FACEBOOK'], ad_link=APP_CONFIG['AD_LINK'], banner=APP_CONFIG['BANNER'])
 
 @app.route('/health')
 def health():
-    return jsonify({
-        'status': 'healthy',
-        'service': 'ultimate-media-search',
-        'firebase_mode': FIREBASE_MODE,
-        'timestamp': int(time.time() * 1000)
-    }), 200
+    return jsonify({'status':'healthy','service':'ultimate-media-search','firebase_mode':FIREBASE_MODE,'timestamp':int(time.time()*1000)}), 200
 
 @app.route('/favicon.ico')
 @app.route('/favicon.png')
-def favicon():
-    return '', 204
+def favicon(): return '', 204
 
 # ─────────────────────────────────────────────────────────────────────
-# 🤖 Telegram Bot
+# 🤖 Telegram Bot & /start Handler
 # ─────────────────────────────────────────────────────────────────────
-
 try:
     import telebot
     from telebot import types
@@ -430,95 +319,80 @@ except Exception as e:
 
 if bot:
     @bot.message_handler(commands=['start'])
-    def handle_start(msg):
+    def handle_start(message):
         try:
-            uid = msg.from_user.id
-            name = msg.from_user.first_name or 'User'
+            uid = message.from_user.id
+            name = message.from_user.first_name or 'User'
+            dashboard_url = f"{VERCEL_DOMAIN}/dashboard?id={uid}&name={name}"
             
-            try:
-                if not get_user(uid):
-                    set_user(uid, {
-                        'uid': uid, 'name': name, 'username': name,
-                        'points': 0, 'total_earned': 0, 'ad_views': 0,
-                        'tasks_completed': 0, 'joined_at': int(time.time()*1000),
-                        'referral_code': 'UMS' + str(uid)[-6:].upper()
-                    })
-            except Exception as e:
-                logger.error(f"User save error: {e}")
-            
-            caption = f"""
-🌟 <b>Welcome {name}!</b>
+            welcome_text = f"""
+🌟 <b>Welcome to Ultimate Media Search!</b> 🌟
 
-💬 <i>"Your smartphone is now your ATM!"</i> 💰
+ 👋 Hello <b>{name}</b>!
+
+💬 <i>"Your smartphone is now your ATM. Stop scrolling for free—start earning for your time!"</i> 💰✨
 
 🎁 <b>How to Earn:</b>
 ├ 📺 Watch Ads → +{APP_CONFIG['AD_POINTS']} Points
-├ 📱 Social Tasks → +{APP_CONFIG['SOCIAL_POINTS']} Points
-└ 💰 <b>{APP_CONFIG['POINTS_PER_DOLLAR']} Points = $1.00</b>
+├ 📱 Social Tasks → +{APP_CONFIG['SOCIAL_POINTS']} Points  
+├ 👥 Refer Friends → +{APP_CONFIG['REFERRAL_BONUS']} Points
+└ 💰 <b>{APP_CONFIG['POINTS_PER_DOLLAR']} Points = $1.00 USD</b>
 
-👇 Open your Dashboard!
+ All earnings are secure & auto-tracked.
+🚀 Tap below to open your Premium Dashboard!
             """
             
             markup = types.InlineKeyboardMarkup(row_width=1)
-            dashboard_url = f"/dashboard?id={uid}&name={name}"
-            
             markup.add(
-                types.InlineKeyboardButton("🚀 Open Dashboard", url=dashboard_url)
+                types.InlineKeyboardButton("🚀 Open Premium Dashboard", url=dashboard_url),
+                types.InlineKeyboardButton("📢 Join Updates Channel", url="https://t.me/YourChannelLink")
             )
             
             try:
-                bot.send_photo(msg.chat.id, photo=APP_CONFIG['BANNER'], caption=caption, reply_markup=markup)
+                bot.send_photo(message.chat.id, photo=APP_CONFIG['BANNER'], caption=welcome_text, reply_markup=markup)
             except:
-                bot.send_message(msg.chat.id, caption, reply_markup=markup)
-                
+                bot.send_message(message.chat.id, welcome_text + f"\n\n🖼️ <a href='{APP_CONFIG['BANNER']}'>View Banner</a>", reply_markup=markup)
         except Exception as e:
             logger.error(f"Start error: {e}")
-            bot.send_message(msg.chat.id, "⚠️ Error. Try /start again.")
+            bot.send_message(message.chat.id, "⚠️ Error. Try /start again.")
+
+    @bot.callback_query_handler(func=lambda c: True)
+    def handle_callbacks(call):
+        bot.answer_callback_query(call.id)
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔗 Webhook & Entry
+# 🔗 Webhook & Auto-Setup
 # ─────────────────────────────────────────────────────────────────────
-
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    if not bot:
-        return 'Bot unavailable', 503
+    if not bot: return 'Bot unavailable', 503
     try:
         update = request.get_json(force=True)
-        if update:
-            bot.process_new_updates([types.Update.de_json(update)])
+        if update: bot.process_new_updates([types.Update.de_json(update)])
         return '', 200
     except Exception as e:
         logger.error(f"Webhook error: {e}")
         return jsonify({'error': str(e)}), 500
 
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({'error': 'Not found'}), 404
-
-@app.errorhandler(500)
-def server_error(e):
-    logger.error(f"Server error: {e}")
-    return jsonify({'error': 'Internal server error'}), 500
-
-# Auto-set webhook
 WEBHOOK_SET = False
-
 @app.before_request
 def set_webhook_once():
     global WEBHOOK_SET
     if not WEBHOOK_SET and bot and request.path == '/webhook':
         try:
-            host = request.host_url.rstrip('/')
-            bot.set_webhook(f"{host}/webhook")
-            logger.info(f"✅ Webhook set: {host}/webhook")
-        except:
-            pass
+            url = f"{request.host_url.rstrip('/')}/webhook"
+            bot.set_webhook(url)
+            logger.info(f"✅ Webhook set: {url}")
+        except: pass
         WEBHOOK_SET = True
 
-logger.info(f"✅ Server ready | Firebase: {FIREBASE_MODE}")
+@app.errorhandler(404)
+def not_found(e): return jsonify({'error':'Not found'}), 404
+@app.errorhandler(500)
+def server_error(e): 
+    logger.error(f"Server error: {e}")
+    return jsonify({'error':'Internal server error'}), 500
 
+logger.info(f"✅ Server ready | Firebase: {FIREBASE_MODE}")
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
-    logger.info(f"🚀 Starting on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
