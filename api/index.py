@@ -1,10 +1,9 @@
 """
-🤖 Ultimate Media Search Bot - Complete Vercel-Ready Solution
-✅ Single File: api/index.py
-✅ Custom Hindi/English Welcome Message + Fixed Photo Sending
-✅ Firebase asia-southeast1 + Vercel Env Var Handling
-✅ Mobile-Responsive Dashboard
-✅ Auto Webhook Setup
+🤖 Ultimate Media Search Bot - Complete Professional Version
+✅ UPI Payment Integration (8543083014@ikwik)
+✅ Buy Plans (₹100 & ₹500) - Fixed & Working
+✅ Premium Dashboard + Admin Panel
+✅ Firebase asia-southeast1 + Vercel Ready
 """
 
 import os
@@ -31,7 +30,7 @@ logger = logging.getLogger(__name__)
 logger.info("🚀 Starting Ultimate Media Search Bot...")
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔐 Firebase Credential Parser (Fixes Vercel Newline Issue)
+# 🔐 Firebase Credential Parser
 # ─────────────────────────────────────────────────────────────────────
 def parse_firebase_credentials(env_value: str) -> Optional[Dict[str, Any]]:
     if not env_value or env_value == 'skip':
@@ -61,7 +60,7 @@ def _fix_private_key(creds: Dict[str, Any]) -> Dict[str, Any]:
     return creds
 
 # ─────────────────────────────────────────────────────────────────────
-# 🗄️ Firebase Initialization & REST Fallback
+# 🗄️ Firebase Initialization
 # ─────────────────────────────────────────────────────────────────────
 def init_firebase() -> bool:
     try:
@@ -80,7 +79,7 @@ def init_firebase() -> bool:
             'projectId': sa.get('project_id')
         })
         db.reference('.info/serverTimeOffset').get()
-        logger.info("✅ Firebase Admin SDK initialized (asia-southeast1)")
+        logger.info("✅ Firebase Admin SDK initialized")
         return True
     except ImportError:
         logger.warning("⚠️ firebase-admin missing, using REST")
@@ -90,7 +89,6 @@ def init_firebase() -> bool:
         return False
 
 FIREBASE_MODE = 'admin' if init_firebase() else 'rest'
-logger.info(f"🔗 Firebase mode: {FIREBASE_MODE}")
 
 class FirebaseREST:
     def __init__(self, url): self.base = url.rstrip('/')
@@ -122,13 +120,17 @@ if not VERCEL_DOMAIN.startswith('https://'): VERCEL_DOMAIN = f"https://{VERCEL_D
 APP_CONFIG = {
     'POINTS_PER_DOLLAR': 100, 'AD_POINTS': 25, 'SOCIAL_POINTS': 100,
     'REFERRAL_BONUS': 50, 'MIN_WITHDRAW': 100,
+    'PLAN_100_PRICE': 100, 'PLAN_500_PRICE': 500,
     'AD_LINK': 'https://horizontallyresearchpolar.com/r0wbx3kyf?key=8b0a2298684c7cea730312add326101b',
     'YOUTUBE': 'https://youtube.com/@USSoccerPulse',
     'INSTAGRAM': 'https://instagram.com/digital_rockstar_m',
     'FACEBOOK': 'https://www.facebook.com/UltimateMediaSearch',
     'BANNER': 'https://i.ibb.co/9kmTw4Gh/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg',
-    'SUPPORT_LINK': 'https://t.me/YourSupportUsername',  # 🔁 Change this
-    'COMMUNITY_LINK': 'https://t.me/YourCommunityLink'    # 🔁 Change this
+    'SUPPORT_LINK': 'https://t.me/YourSupportUsername',
+    'COMMUNITY_LINK': 'https://t.me/YourCommunityLink',
+    'UPI_ID': '8543083014@ikwik',  # ✅ UPI Payment ID
+    'UPI_NAME': 'Ultimate Media Search',
+    'DASHBOARD_URL': f'{VERCEL_DOMAIN}/dashboard'
 }
 
 FIREBASE_CONFIG = {
@@ -142,19 +144,22 @@ FIREBASE_CONFIG = {
 }
 
 # ─────────────────────────────────────────────────────────────────────
-# 🌐 Flask App & Dashboard HTML
+# 🌐 Flask App
 # ─────────────────────────────────────────────────────────────────────
 from flask import Flask, request, jsonify, render_template_string
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24).hex()
 
+# ─────────────────────────────────────────────────────────────────────
+# 🎨 Dashboard HTML (Complete)
+# ─────────────────────────────────────────────────────────────────────
 DASHBOARD_HTML = '''<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#667eea">
-<title>💰 Ultimate Media Search</title>
+<title>💰 Ultimate Media Search - Earn Dashboard</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -179,6 +184,7 @@ body{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667
 .btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:1rem;font-weight:bold;cursor:pointer;margin:8px 0;display:flex;align-items:center;justify-content:center;gap:8px}
 .btn:active{transform:scale(0.98)}.btn:disabled{opacity:0.6;cursor:not-allowed}
 .btn-primary{background:#fff;color:#667eea}.btn-secondary{background:rgba(255,255,255,0.2);color:#fff}.btn-success{background:#48bb78;color:#fff}
+.btn-warning{background:#ed8936;color:#fff}.btn-danger{background:#f56565;color:#fff}
 #adBtn{background:linear-gradient(135deg,#f093fb,#f5576c);color:#fff;font-size:1.1rem;padding:18px}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:#1a202c;color:#fff;padding:12px 24px;border-radius:12px;font-weight:600;z-index:1000;transition:transform 0.3s;box-shadow:0 10px 40px rgba(0,0,0,0.3);display:flex;align-items:center;gap:8px}
 .toast.show{transform:translateX(-50%) translateY(0)}.toast.success{background:#48bb78}.toast.error{background:#f56565}.toast.info{background:#667eea}
@@ -191,6 +197,8 @@ body{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(26,32,44,0.95);backdrop-filter:blur(10px);padding:10px 20px;padding-bottom:max(10px,env(safe-area-inset-bottom));display:flex;justify-content:space-around;border-top:1px solid rgba(255,255,255,0.1)}
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 16px;border-radius:12px;cursor:pointer;border:none;background:none;color:#fff}
 .nav-item.active{background:rgba(255,255,255,0.15)}.nav-item .icon{font-size:1.3rem}.nav-item .label{font-size:0.7rem;opacity:0.8}
+.upi-box{background:linear-gradient(135deg,#fff,#f0f0f0);color:#1a202c;padding:20px;border-radius:16px;margin:15px 0;text-align:center}
+.upi-qr{width:200px;height:200px;margin:15px auto;border-radius:12px;border:3px solid #667eea}
 ::-webkit-scrollbar{width:0}
 </style>
 </head>
@@ -208,6 +216,11 @@ body{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667
 <div class="stat-item"><span class="stat-value" id="ads">0</span><div class="stat-label">Ads</div></div>
 <div class="stat-item"><span class="stat-value" id="totalEarned">$0.00</span><div class="stat-label">Total</div></div>
 </div>
+</div>
+<div class="card">
+<div class="card-title">💎 Buy Premium Plans</div>
+<button class="btn btn-warning" onclick="buyPlan(100,'plan_100')"><span>⭐</span><span>Buy ₹100 Plan (Earning Booster)</span></button>
+<button class="btn btn-primary" onclick="buyPlan(500,'plan_500')"><span>🚀</span><span>Buy ₹500 Plan (Promotion Hub)</span></button>
 </div>
 <div class="card">
 <div class="card-title">📺 Daily Tasks</div>
@@ -245,15 +258,15 @@ body{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667
 </nav>
 <script>
 const FC={{ firebase_config | safe }};firebase.initializeApp(FC);const db=firebase.database();
-const CFG={POINTS_PER_DOLLAR:100,AD_POINTS:25,SOCIAL_POINTS:100,REFERRAL_BONUS:50,DAILY_AD_TARGET:2000,AD_LINK:'{{ ad_link }}',YOUTUBE:'{{ youtube }}',INSTAGRAM:'{{ instagram }}',FACEBOOK:'{{ facebook }}'};
+const CFG={{ app_config | safe }};
 const P=new URLSearchParams(location.search);let UID=P.get('id')||(window.Telegram?.WebApp?.initDataUnsafe?.user?.id)||'123';let UNAME=P.get('name')||(window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name)||'User';let USER_DATA={};let CLAIMED=JSON.parse(localStorage.getItem('c_'+UID)||'{}');
 const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();}
 document.addEventListener('DOMContentLoaded',()=>{document.getElementById('userName').textContent=UNAME;loadUser();});
 function loadUser(){db.ref('users/'+UID).on('value',s=>{let d=s.val();if(!d){createUser();return;}USER_DATA=d;updateUI();});}
-function createUser(){const ts=Date.now();const rc='UMS'+String(UID).slice(-6).toUpperCase();const newUser={uid:UID,name:UNAME,username:UNAME,referral_code:rc,points:0,total_earned:0,ad_views:0,tasks_completed:0,joined_at:ts,last_active:ts,last_ad_date:'',daily_ad_completed:false};db.ref('users/'+UID).set(newUser);USER_DATA=newUser;updateUI();showToast('🎉 Welcome!','success');}
-function updateUI(){const p=USER_DATA.points||0;const bal=(p/CFG.POINTS_PER_DOLLAR).toFixed(2);const total=((USER_DATA.total_earned||0)/CFG.POINTS_PER_DOLLAR).toFixed(2);const ads=USER_DATA.ad_views||0;const prog=Math.min((ads/CFG.DAILY_AD_TARGET)*100,100);
+function createUser(){const ts=Date.now();const rc='UMS'+String(UID).slice(-6).toUpperCase();const newUser={uid:UID,name:UNAME,username:UNAME,referral_code:rc,points:0,total_earned:0,ad_views:0,tasks_completed:0,joined_at:ts,last_active:ts,last_ad_date:'',daily_ad_completed:false,plan:'free'};db.ref('users/'+UID).set(newUser);USER_DATA=newUser;updateUI();showToast('🎉 Welcome!','success');}
+function updateUI(){const p=USER_DATA.points||0;const bal=(p/CFG.POINTS_PER_DOLLAR).toFixed(2);const total=((USER_DATA.total_earned||0)/CFG.POINTS_PER_DOLLAR).toFixed(2);const ads=USER_DATA.ad_views||0;const prog=Math.min((ads/2000)*100,100);
 document.getElementById('balance').textContent='$'+bal;document.getElementById('points').textContent=p.toLocaleString();document.getElementById('tasks').textContent=USER_DATA.tasks_completed||0;document.getElementById('ads').textContent=ads.toLocaleString();document.getElementById('totalEarned').textContent='$'+total;
-document.getElementById('progressFill').style.width=prog+'%';document.getElementById('progressText').textContent=ads.toLocaleString()+' / '+CFG.DAILY_AD_TARGET.toLocaleString()+' ads';
+document.getElementById('progressFill').style.width=prog+'%';document.getElementById('progressText').textContent=ads.toLocaleString()+' / 2,000 ads';
 const rc=USER_DATA.referral_code||'UMS'+String(UID).slice(-6).toUpperCase();document.getElementById('refLink').textContent='https://t.me/UltimateMediaSearchBot?start='+rc;
 const today=new Date().toDateString();const lastAd=USER_DATA.last_ad_date||'';const btn=document.getElementById('adBtn');
 if(lastAd===today){btn.disabled=true;btn.innerHTML='<span>✅</span><span>Daily Ad Completed</span>';}else{btn.disabled=false;btn.innerHTML='<span>🎬</span><span>Watch Daily Ad</span><span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:8px;font-size:0.85rem">+25</span>';}}
@@ -267,10 +280,15 @@ async function claimTask(plat){const key=plat+'_task';if(CLAIMED[key]){showToast
 const links={youtube:CFG.YOUTUBE,instagram:CFG.INSTAGRAM,facebook:CFG.FACEBOOK};window.open(links[plat],'_blank');
 try{await db.ref('users/'+UID).update({points:(USER_DATA.points||0)+CFG.SOCIAL_POINTS,total_earned:(USER_DATA.total_earned||0)+CFG.SOCIAL_POINTS,tasks_completed:(USER_DATA.tasks_completed||0)+1,last_active:Date.now(),['social_tasks/'+plat]:{completed:true,completed_at:Date.now()}});
 CLAIMED[key]=true;localStorage.setItem('c_'+UID,JSON.stringify(CLAIMED));showToast('🎉 +'+CFG.SOCIAL_POINTS+' Points!','success');}catch(e){showToast('❌ Failed','error');}}
+async function buyPlan(amount,planType){
+const upiLink=`upi://pay?pa=${CFG.UPI_ID}&pn=${encodeURIComponent(CFG.UPI_NAME)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Plan Purchase: '+planType)}`;
+const confirmMsg=`🛒 Buy ${planType==='plan_100'?'₹100 Plan':'₹500 Plan'}?\n\n💳 Pay ₹${amount} via UPI\n\nAfter payment, screenshot send karein admin ko.`;
+if(confirm(confirmMsg)){try{window.open(upiLink,'_blank');await db.ref('payments/'+UID+'/'+Date.now()).set({amount:amount,plan:planType,status:'pending',timestamp:Date.now()});
+showToast('💳 Payment page opened! Screenshot save karein.','info');}catch(e){showToast('❌ Payment failed','error');}}}
 function copyReferral(){navigator.clipboard.writeText(document.getElementById('refLink').textContent).then(()=>showToast('🔗 Copied!','success'));}
 function shareReferral(){const l=document.getElementById('refLink').textContent;const t='🎁 Join me! Earn money watching ads: '+l;if(tg)tg.openTelegramLink('https://t.me/share/url?url='+encodeURIComponent(l)+'&text='+encodeURIComponent(t));else window.open('https://t.me/share/url?url='+encodeURIComponent(l)+'&text='+encodeURIComponent(t),'_blank');}
 function showReferralStats(){const rc=USER_DATA.referral_count||0;const earn=rc*CFG.REFERRAL_BONUS;showToast('📊 Referrals: '+rc+' | Points: '+earn,'info');}
-async function requestWithdraw(){const p=USER_DATA.points||0;if(p<CFG.POINTS_PER_DOLLAR){showToast('💰 Need 100 points ($1)!','error');return;}
+async function requestWithdraw(){const p=USER_DATA.points||0;if(p<CFG.MIN_WITHDRAW){showToast('💰 Need 100 points ($1)!','error');return;}
 const usd=(p/CFG.POINTS_PER_DOLLAR).toFixed(2);if(confirm('Withdraw $'+usd+'?')){try{await db.ref('withdrawals/'+UID+'/'+Date.now()).set({amount:p,usd:usd,status:'pending',requested_at:Date.now()});
 await db.ref('users/'+UID).update({points:0,total_withdrawn:(USER_DATA.total_withdrawn||0)+p,pending_withdrawal:true});showToast('✅ Withdrawal submitted! 24-48h','success');}catch(e){showToast('❌ Failed','error');}}}
 function showToast(m,t='success'){const icons={success:'✅',error:'❌',info:'ℹ️'};document.getElementById('toastIcon').textContent=icons[t]||'✅';document.getElementById('toastMsg').textContent=m;
@@ -286,7 +304,7 @@ const el=document.getElementById('toast');el.className='toast '+t+' show';setTim
 def root():
     return f'''<html><body style="background:#1a202c;color:#fff;text-align:center;padding:40px;font-family:sans-serif">
     <h1>🤖 Ultimate Media Search Bot</h1><p style="color:#94a3b8;margin:20px 0">Server running! ✅</p>
-    <a href="/dashboard?id=123&name=Test" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:600">🚀 Open Dashboard</a>
+    <a href="{APP_CONFIG['DASHBOARD_URL']}?id=123&name=Test" style="display:inline-block;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:600">🚀 Open Dashboard</a>
     <p style="margin-top:30px;font-size:0.9rem;color:#64748b">Firebase: {FIREBASE_MODE}</p></body></html>'''
 
 @app.route('/dashboard')
@@ -295,9 +313,9 @@ def dashboard():
     name = request.args.get('name', 'User')
     try:
         if not get_user(tid):
-            set_user(tid, {'uid':tid,'name':name,'username':name,'points':0,'total_earned':0,'ad_views':0,'tasks_completed':0,'joined_at':int(time.time()*1000),'last_active':int(time.time()*1000),'referral_code':'UMS'+str(tid)[-6:].upper()})
+            set_user(tid, {'uid':tid,'name':name,'username':name,'points':0,'total_earned':0,'ad_views':0,'tasks_completed':0,'joined_at':int(time.time()*1000),'last_active':int(time.time()*1000),'referral_code':'UMS'+str(tid)[-6:].upper(),'plan':'free'})
     except Exception as e: logger.error(f"User creation error: {e}")
-    return render_template_string(DASHBOARD_HTML, firebase_config=json.dumps(FIREBASE_CONFIG), youtube=APP_CONFIG['YOUTUBE'], instagram=APP_CONFIG['INSTAGRAM'], facebook=APP_CONFIG['FACEBOOK'], ad_link=APP_CONFIG['AD_LINK'], banner=APP_CONFIG['BANNER'])
+    return render_template_string(DASHBOARD_HTML, firebase_config=json.dumps(FIREBASE_CONFIG), app_config=json.dumps(APP_CONFIG), banner=APP_CONFIG['BANNER'])
 
 @app.route('/health')
 def health():
@@ -308,7 +326,7 @@ def health():
 def favicon(): return '', 204
 
 # ─────────────────────────────────────────────────────────────────────
-# 🤖 Telegram Bot & Handlers
+# 🤖 Telegram Bot
 # ─────────────────────────────────────────────────────────────────────
 try:
     import telebot
@@ -325,49 +343,36 @@ if bot:
         try:
             uid = message.from_user.id
             name = message.from_user.first_name or 'User'
-            dashboard_url = f"{VERCEL_DOMAIN}/dashboard?id={uid}&name={name}"
+            dashboard_url = f"{APP_CONFIG['DASHBOARD_URL']}?id={uid}&name={name}"
             
             welcome_text = f"""
 ✨ <b>Welcome to UltimateMediaSearchBot!</b> ✨
 
- <b>India’s #1 Destination for Earning & Social Media Growth.</b>
+🇳 <b>India's #1 Destination for Earning & Social Media Growth.</b>
 
-Namaste! 🙏 Aapne sahi jagah kadam rakha hai. Chahe aap extra income kamana chahte ho ya apne brand ki reach badhana, hum aapke saath hain.
-
-━━━━━━━━━━━━━━━━━━━━
-
-💰 <b>EARNING DHAMAKA (Subscription: ₹100)</b>
-
-Ab apne mobile ka sahi istemal karein aur rozana kamayein!
-
-✅ <b>VIP Tasks:</b> High-paying social media tasks unlock karein.
-✅ <b>Fast Payout:</b> Apni mehnat ki kamayi turant withdraw karein.
-✅ <b>Refer & Earn:</b> Doston ko join karayein aur lifetime 10% commission payein.
-
-<b>Start earning by completing these tasks:</b>
-1️⃣ <b>YouTube:</b> <a href="{APP_CONFIG['YOUTUBE']}">Channel Link</a>
-2️⃣ <b>Instagram:</b> <a href="{APP_CONFIG['INSTAGRAM']}">Profile Link</a>
-3️⃣ <b>Facebook:</b> <a href="{APP_CONFIG['FACEBOOK']}">Official Profile</a>
+Namaste! 🙏 Aapne sahi jagah kadam rakha hai.
 
 ━━━━━━━━━━━━━━━━━━━━
 
-📢 <b>PROMOTION HUB (Plan: ₹500)</b>
+💰 <b>EARNING DHAMAKA</b>
+✅ VIP Tasks: High-paying social media tasks
+✅ Fast Payout: Instant withdrawal
+✅ Refer & Earn: Lifetime 10% commission
 
-Kya aap apna YouTube, Instagram ya Facebook viral karna chahte hain?
-
-🚀 <b>Real Traffic:</b> Koi bot nahi, sirf asli users.
-🚀 <b>Instant Reach:</b> Apne link par dheron likes aur followers payein.
-🔗 <b>Join our Network:</b> <a href="{APP_CONFIG['COMMUNITY_LINK']}">UltimateMediaSearch Community</a>
-
-━━━━━━━━━━━━━━━━━━━━
-
-🔥 <b>AAJ KA MOTIVATION</b>
-
-<i>"Zamaana badal raha hai, ab mehnat ke saath-saath smart work karne ka time hai. Aaj ka ₹100 ka chota sa investment aapki kal ki badi kamyabi ban sakta hai. Der mat kijiye!"</i>
+📱 <b>Social Tasks:</b>
+1️⃣ YouTube: <a href="{APP_CONFIG['YOUTUBE']}">Subscribe</a>
+2️⃣ Instagram: <a href="{APP_CONFIG['INSTAGRAM']}">Follow</a>
+3️⃣ Facebook: <a href="{APP_CONFIG['FACEBOOK']}">Like</a>
 
 ━━━━━━━━━━━━━━━━━━━━
 
-👇 <b>Neeche diye gaye buttons par click karke shuru karein!</b>
+💳 <b>PREMIUM PLANS</b>
+⭐ ₹100 Plan - Earning Booster
+🚀 ₹500 Plan - Promotion Hub
+
+━━━━━━━━━━━━━━━━━━━━
+
+👇 <b>Neeche buttons se shuru karein!</b>
             """
             
             markup = types.InlineKeyboardMarkup(row_width=2)
@@ -376,75 +381,49 @@ Kya aap apna YouTube, Instagram ya Facebook viral karna chahte hain?
                 types.InlineKeyboardButton("📊 My Dashboard", url=dashboard_url)
             )
             markup.add(
-                types.InlineKeyboardButton("⭐ Buy ₹100 Plan", callback_data="plan_100"),
-                types.InlineKeyboardButton("🚀 Buy ₹500 Plan", callback_data="plan_500")
+                types.InlineKeyboardButton("⭐ Buy ₹100 Plan", callback_data="buy_100"),
+                types.InlineKeyboardButton("🚀 Buy ₹500 Plan", callback_data="buy_500")
             )
             markup.add(
                 types.InlineKeyboardButton("📺 Watch Ad", url=APP_CONFIG['AD_LINK']),
                 types.InlineKeyboardButton("💬 Support", url=APP_CONFIG['SUPPORT_LINK'])
             )
             
-            # ✅ PHOTO FIX: Download image as bytes to bypass Telegram URL restrictions
             try:
                 img_resp = requests.get(APP_CONFIG['BANNER'], timeout=10)
-                img_resp.raise_for_status()
-                bot.send_photo(
-                    chat_id=message.chat.id,
-                    photo=img_resp.content,  # Send as bytes instead of URL
-                    caption=welcome_text,
-                    reply_markup=markup,
-                    parse_mode="HTML"
-                )
-                logger.info(f"✅ Photo + Message sent to {uid}")
-            except Exception as photo_err:
-                logger.warning(f"Photo download failed: {photo_err}. Sending fallback.")
-                bot.send_message(
-                    chat_id=message.chat.id,
-                    text=f"🖼️ <b>Welcome Image:</b> {APP_CONFIG['BANNER']}\n\n{welcome_text}",
-                    reply_markup=markup,
-                    parse_mode="HTML",
-                    disable_web_page_preview=False
-                )
+                bot.send_photo(message.chat.id, photo=img_resp.content, caption=welcome_text, reply_markup=markup, parse_mode="HTML")
+            except:
+                bot.send_message(message.chat.id, f"🖼️ Image: {APP_CONFIG['BANNER']}\n\n{welcome_text}", reply_markup=markup, parse_mode="HTML")
                 
         except Exception as e:
-            logger.error(f"Start command error: {e}")
-            bot.send_message(message.chat.id, "⚠️ Something went wrong. Please try /start again.")
+            logger.error(f"Start error: {e}")
 
-    @bot.callback_query_handler(func=lambda call: call.data.startswith('plan_'))
-    def handle_plan_selection(call):
+    @bot.callback_query_handler(func=lambda call: call.data.startswith('buy_'))
+    def handle_buy_plan(call):
         try:
-            plan_type = call.data.split('_')[1]
-            if plan_type == '100':
-                title = "⭐ EARNING BOOSTER (₹100)"
-                desc = "✅ VIP Tasks Access\n✅ 2x Points on Every Task\n✅ Fast Withdrawal (Instant)\n✅ Daily Bonus: 50 Points\n✅ Refer Commission: 15%"
-            else:
-                title = "🚀 PROMOTION HUB (₹500)"
-                desc = "✅ Promote Your Social Media\n✅ Real Users Engagement\n✅ 1000+ Followers/Likes\n✅ Priority Support\n✅ Lifetime Validity"
+            plan = call.data.split('_')[1]
+            amount = 100 if plan == '100' else 500
+            upi_link = f"upi://pay?pa={APP_CONFIG['UPI_ID']}&pn={APP_CONFIG['UPI_NAME']}&am={amount}&cu=INR&tn=Plan Purchase {plan}"
             
-            markup = types.InlineKeyboardMarkup(row_width=1)
-            markup.add(types.InlineKeyboardButton("💳 Pay Now via UPI", callback_data=f"pay_{plan_type}"))
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("💳 Pay via UPI", url=upi_link))
             markup.add(types.InlineKeyboardButton("📞 Contact Admin", url=APP_CONFIG['SUPPORT_LINK']))
-            markup.add(types.InlineKeyboardButton("🔙 Back", callback_data="back_to_menu"))
             
             bot.edit_message_text(
-                f"<b>{title}</b>\n\n{desc}\n\n📩 Payment karne ke baad screenshot admin ko bhejein.",
+                f"💳 <b>Payment Details</b>\n\n"
+                f"Plan: {'₹100 - Earning Booster' if plan=='100' else '₹500 - Promotion Hub'}\n"
+                f"Amount: ₹{amount}\n\n"
+                f"UPI ID: <code>{APP_CONFIG['UPI_ID']}</code>\n\n"
+                f"✅ Payment ke baad screenshot admin ko bhejein.",
                 call.message.chat.id, call.message.message_id,
                 reply_markup=markup, parse_mode="HTML"
             )
             bot.answer_callback_query(call.id)
         except Exception as e:
-            logger.error(f"Plan selection error: {e}")
-            bot.answer_callback_query(call.id, "Error loading plan", show_alert=True)
-
-    @bot.callback_query_handler(func=lambda call: call.data == 'back_to_menu')
-    def handle_back_to_menu(call):
-        try:
-            bot.delete_message(call.message.chat.id, call.message.message_id)
-            handle_start(call.message)
-        except: pass
+            logger.error(f"Buy plan error: {e}")
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔗 Webhook & Auto-Setup
+# 🔗 Webhook
 # ─────────────────────────────────────────────────────────────────────
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -463,9 +442,8 @@ def set_webhook_once():
     global WEBHOOK_SET
     if not WEBHOOK_SET and bot and request.path == '/webhook':
         try:
-            url = f"{request.host_url.rstrip('/')}/webhook"
-            bot.set_webhook(url)
-            logger.info(f"✅ Webhook set: {url}")
+            bot.set_webhook(f"{request.host_url.rstrip('/')}/webhook")
+            logger.info(f"✅ Webhook set")
         except: pass
         WEBHOOK_SET = True
 
