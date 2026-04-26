@@ -1,5 +1,4 @@
-flask
-pyTelegramBotAPI
-firebase-admin
-requests
-openai
+pyTelegramBotAPI==4.14.0
+Flask==2.3.3
+firebase-admin==6.2.0
+requests==2.31.0
