@@ -1,7 +1,7 @@
 """
 🤖 Ultimate Media Search Bot - Complete Vercel-Ready Solution
 ✅ Single File: api/index.py
-✅ Custom Hindi/English Welcome Message + Image
+✅ Custom Hindi/English Welcome Message + Fixed Photo Sending
 ✅ Firebase asia-southeast1 + Vercel Env Var Handling
 ✅ Mobile-Responsive Dashboard
 ✅ Auto Webhook Setup
@@ -330,7 +330,7 @@ if bot:
             welcome_text = f"""
 ✨ <b>Welcome to UltimateMediaSearchBot!</b> ✨
 
-🇳 <b>India’s #1 Destination for Earning & Social Media Growth.</b>
+ <b>India’s #1 Destination for Earning & Social Media Growth.</b>
 
 Namaste! 🙏 Aapne sahi jagah kadam rakha hai. Chahe aap extra income kamana chahte ho ya apne brand ki reach badhana, hum aapke saath hain.
 
@@ -384,11 +384,27 @@ Kya aap apna YouTube, Instagram ya Facebook viral karna chahte hain?
                 types.InlineKeyboardButton("💬 Support", url=APP_CONFIG['SUPPORT_LINK'])
             )
             
+            # ✅ PHOTO FIX: Download image as bytes to bypass Telegram URL restrictions
             try:
-                bot.send_photo(message.chat.id, photo=APP_CONFIG['BANNER'], caption=welcome_text, reply_markup=markup)
-            except Exception as e:
-                logger.error(f"Send photo error: {e}")
-                bot.send_message(message.chat.id, welcome_text + f"\n\n🖼️ <a href='{APP_CONFIG['BANNER']}'>View Welcome Banner</a>", reply_markup=markup)
+                img_resp = requests.get(APP_CONFIG['BANNER'], timeout=10)
+                img_resp.raise_for_status()
+                bot.send_photo(
+                    chat_id=message.chat.id,
+                    photo=img_resp.content,  # Send as bytes instead of URL
+                    caption=welcome_text,
+                    reply_markup=markup,
+                    parse_mode="HTML"
+                )
+                logger.info(f"✅ Photo + Message sent to {uid}")
+            except Exception as photo_err:
+                logger.warning(f"Photo download failed: {photo_err}. Sending fallback.")
+                bot.send_message(
+                    chat_id=message.chat.id,
+                    text=f"🖼️ <b>Welcome Image:</b> {APP_CONFIG['BANNER']}\n\n{welcome_text}",
+                    reply_markup=markup,
+                    parse_mode="HTML",
+                    disable_web_page_preview=False
+                )
                 
         except Exception as e:
             logger.error(f"Start command error: {e}")
@@ -400,22 +416,10 @@ Kya aap apna YouTube, Instagram ya Facebook viral karna chahte hain?
             plan_type = call.data.split('_')[1]
             if plan_type == '100':
                 title = "⭐ EARNING BOOSTER (₹100)"
-                desc = """
-✅ VIP Tasks Access
-✅ 2x Points on Every Task
-✅ Fast Withdrawal (Instant)
-✅ Daily Bonus: 50 Points
-✅ Refer Commission: 15%
-                """
+                desc = "✅ VIP Tasks Access\n✅ 2x Points on Every Task\n✅ Fast Withdrawal (Instant)\n✅ Daily Bonus: 50 Points\n✅ Refer Commission: 15%"
             else:
                 title = "🚀 PROMOTION HUB (₹500)"
-                desc = """
-✅ Promote Your Social Media
-✅ Real Users Engagement
-✅ 1000+ Followers/Likes
-✅ Priority Support
-✅ Lifetime Validity
-                """
+                desc = "✅ Promote Your Social Media\n✅ Real Users Engagement\n✅ 1000+ Followers/Likes\n✅ Priority Support\n✅ Lifetime Validity"
             
             markup = types.InlineKeyboardMarkup(row_width=1)
             markup.add(types.InlineKeyboardButton("💳 Pay Now via UPI", callback_data=f"pay_{plan_type}"))
