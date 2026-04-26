@@ -1,10 +1,10 @@
 """
-🤖 Ultimate Media Search Bot - Complete Professional Edition
-✅ UPI Payment Integration (Direct)
-✅ DeepSeek AI Chat Integration
+🤖 Ultimate Media Search Bot - Production Ready
+✅ Vercel Serverless Compatible
+✅ UPI Direct Payment Integration
+✅ DeepSeek AI Chat API
 ✅ Full Admin Panel Control
-✅ Firebase asia-southeast1
-✅ Vercel Serverless Ready
+✅ Firebase REST Fallback (No Crash)
 """
 
 import os
@@ -16,86 +16,51 @@ import hashlib
 import secrets
 from datetime import datetime
 from typing import Optional, Dict, Any
-from functools import wraps
 import requests
-from flask import Flask, request, jsonify, render_template, render_template_string, session, redirect, url_for
-from flask_cors import CORS
+from flask import Flask, request, jsonify, render_template
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔧 Logging Setup
+# 🔧 Logging & Setup
 # ─────────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    stream=sys.stdout,
-    force=True
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
 logger = logging.getLogger(__name__)
 logger.info("🚀 Starting Ultimate Media Search Bot v3.0...")
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔐 Security Functions
+# 🔐 Utils
 # ─────────────────────────────────────────────────────────────────────
-def validate_user_input(data: str, max_length: int = 1000) -> str:
-    """Sanitize user input"""
-    if not data:
-        return ''
-    sanitized = ''.join(c for c in str(data) if ord(c) < 128)
-    return sanitized[:max_length].strip()
-
-def generate_secure_token(length: int = 32) -> str:
-    """Generate cryptographically secure token"""
-    return secrets.token_hex(length)
+def validate_input(data: str, max_len: int = 1000) -> str:
+    return ''.join(c for c in str(data) if ord(c) < 128)[:max_len].strip() if data else ''
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔐 Firebase Credential Parser
+# 🗄️ Firebase Init & REST Fallback
 # ─────────────────────────────────────────────────────────────────────
-def parse_firebase_credentials(env_value: str) -> Optional[Dict[str, Any]]:
-    if not env_value or env_value == 'skip':
-        logger.warning("⚠️ FIREBASE_SERVICE_ACCOUNT not set")
-        return None
+def parse_firebase_creds(env_val: str) -> Optional[Dict]:
+    if not env_val or env_val == 'skip': return None
     try:
-        if isinstance(env_value, dict):
-            return _fix_private_key(env_value)
-        creds = json.loads(env_value)
-        if not isinstance(creds, dict) or 'private_key' not in creds:
-            raise ValueError("Invalid format")
-        return _fix_private_key(creds)
+        creds = json.loads(env_val) if isinstance(env_val, str) else env_val
+        key = creds.get('private_key', '')
+        if key and '-----BEGIN PRIVATE KEY-----' not in key:
+            key = key.replace('\\\\n', '\n').replace('\\n', '\n')
+            if not key.startswith('-----BEGIN'): key = '-----BEGIN PRIVATE KEY-----\n' + key.strip()
+            if not key.endswith('-----END PRIVATE KEY-----'): key = key.strip() + '\n-----END PRIVATE KEY-----\n'
+            creds['private_key'] = key
+        return creds
     except Exception as e:
-        logger.error(f"❌ Credential parse failed: {e}")
+        logger.error(f"❌ Firebase creds parse failed: {e}")
         return None
 
-def _fix_private_key(creds: Dict[str, Any]) -> Dict[str, Any]:
-    key = creds.get('private_key', '')
-    if not key or '-----BEGIN PRIVATE KEY-----' in key:
-        return creds
-    key = key.replace('\\\\n', '\n').replace('\\n', '\n')
-    if not key.strip().startswith('-----BEGIN PRIVATE KEY-----'):
-        key = '-----BEGIN PRIVATE KEY-----\n' + key.strip()
-    if not key.strip().endswith('-----END PRIVATE KEY-----'):
-        key = key.strip() + '\n-----END PRIVATE KEY-----\n'
-    creds['private_key'] = key
-    return creds
-
-# ─────────────────────────────────────────────────────────────────────
-# 🗄️ Firebase Initialization
-# ─────────────────────────────────────────────────────────────────────
 def init_firebase() -> bool:
     try:
         import firebase_admin
         from firebase_admin import credentials, db
-        if firebase_admin._apps:
-            return True
+        if firebase_admin._apps: return True
         db_url = os.environ.get('FIREBASE_DB_URL', 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/').rstrip('/')
-        sa_raw = os.environ.get('FIREBASE_SERVICE_ACCOUNT', 'skip')
-        sa = parse_firebase_credentials(sa_raw)
+        sa = parse_firebase_creds(os.environ.get('FIREBASE_SERVICE_ACCOUNT', 'skip'))
         if not sa:
-            logger.warning("⚠️ Using REST API fallback")
+            logger.warning("⚠️ No service account, using REST fallback")
             return False
-        firebase_admin.initialize_app(credentials.Certificate(sa), {
-            'databaseURL': db_url,
-            'projectId': sa.get('project_id')
-        })
+        firebase_admin.initialize_app(credentials.Certificate(sa), {'databaseURL': db_url, 'projectId': sa.get('project_id')})
         logger.info("✅ Firebase Admin SDK initialized")
         return True
     except ImportError:
@@ -120,12 +85,9 @@ class FirebaseREST:
 
 firebase_db = FirebaseREST(os.environ.get('FIREBASE_DB_URL', 'https://ultimatemediasearch-default-rtdb.asia-southeast1.firebasedatabase.app/')) if FIREBASE_MODE == 'rest' else None
 
-def get_user(tid):
-    return firebase_db.get(f'users/{tid}') if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').get()
-def set_user(tid, d):
-    return firebase_db.set(f'users/{tid}', d) if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').set(d)
-def update_user(tid, d):
-    return firebase_db.update(f'users/{tid}', d) if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').update(d)
+def get_user(tid): return firebase_db.get(f'users/{tid}') if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').get()
+def set_user(tid, d): return firebase_db.set(f'users/{tid}', d) if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').set(d)
+def update_user(tid, d): return firebase_db.update(f'users/{tid}', d) if FIREBASE_MODE == 'rest' else db.reference(f'users/{tid}').update(d)
 
 # ─────────────────────────────────────────────────────────────────────
 # 🔧 Configuration
@@ -169,15 +131,15 @@ FIREBASE_CONFIG = {
 # ─────────────────────────────────────────────────────────────────────
 # 🌐 Flask App
 # ─────────────────────────────────────────────────────────────────────
-app = Flask(__name__, template_folder='templates', static_folder='static')
+# Vercel safe template path
+template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'templates')
+app = Flask(__name__, template_folder=template_dir)
 app.config['SECRET_KEY'] = os.urandom(32).hex()
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
-CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # ─────────────────────────────────────────────────────────────────────
-# 🌐 Flask Routes
+# 🌐 Routes
 # ─────────────────────────────────────────────────────────────────────
-
 @app.route('/')
 def root():
     return f'''<html><body style="background:#1a202c;color:#fff;text-align:center;padding:40px;font-family:sans-serif">
@@ -187,10 +149,8 @@ def root():
 
 @app.route('/dashboard')
 def dashboard():
-    tid = request.args.get('id', '123')
-    name = request.args.get('name', 'User')
-    tid = validate_user_input(str(tid), 50)
-    name = validate_user_input(name, 100)
+    tid = validate_input(request.args.get('id', '123'), 50)
+    name = validate_input(request.args.get('name', 'User'), 100)
     try:
         if not get_user(tid):
             set_user(tid, {'uid':tid,'name':name,'username':name,'points':0,'total_earned':0,'ad_views':0,'tasks_completed':0,'joined_at':int(time.time()*1000),'last_active':int(time.time()*1000),'referral_code':'UMS'+str(tid)[-6:].upper(),'plan':'free'})
@@ -199,32 +159,24 @@ def dashboard():
 
 @app.route('/admin')
 def admin_panel():
-    admin_key = request.args.get('key', ADMIN_KEY)
-    return render_template('admin.html', firebase_config=json.dumps(FIREBASE_CONFIG), admin_key=admin_key)
+    return render_template('admin.html', firebase_config=json.dumps(FIREBASE_CONFIG), admin_key=request.args.get('key', ADMIN_KEY))
 
 @app.route('/health')
 def health():
     return jsonify({'status':'healthy','service':'ultimate-media-search','firebase_mode':FIREBASE_MODE,'timestamp':int(time.time()*1000)}), 200
 
 # ─────────────────────────────────────────────────────────────────────
-# 🤖 DeepSeek AI Chat API
+# 🤖 DeepSeek Chat API
 # ─────────────────────────────────────────────────────────────────────
-
 @app.route('/api/chat', methods=['POST'])
 def chat_with_deepseek():
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         message = data.get('message', '')
-        user_id = data.get('user_id', 'anonymous')
-        
         if not DEEPSEEK_API_KEY:
             return jsonify({'error': 'DeepSeek API key not configured'}), 500
         
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {DEEPSEEK_API_KEY}'
-        }
-        
+        headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {DEEPSEEK_API_KEY}'}
         payload = {
             'model': APP_CONFIG['DEEPSEEK_MODEL'],
             'messages': [
@@ -234,51 +186,31 @@ def chat_with_deepseek():
             'stream': False
         }
         
-        response = requests.post(
-            f"{APP_CONFIG['DEEPSEEK_BASE_URL']}/v1/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            reply = result['choices'][0]['message']['content']
-            return jsonify({'success': True, 'reply': reply})
-        else:
-            return jsonify({'error': f'DeepSeek API error: {response.status_code}'}), 500
-            
+        resp = requests.post(f"{APP_CONFIG['DEEPSEEK_BASE_URL']}/v1/chat/completions", headers=headers, json=payload, timeout=30)
+        if resp.status_code == 200:
+            return jsonify({'success': True, 'reply': resp.json()['choices'][0]['message']['content']})
+        return jsonify({'error': f'API error: {resp.status_code}'}), 500
     except Exception as e:
         logger.error(f"Chat error: {e}")
         return jsonify({'error': str(e)}), 500
 
 # ─────────────────────────────────────────────────────────────────────
-# 💳 Payment Routes
+# 💳 UPI Payment API
 # ─────────────────────────────────────────────────────────────────────
-
 @app.route('/api/payment/upi')
 def generate_upi_payment():
-    """Generate UPI payment link"""
     try:
         amount = request.args.get('amount', 100, type=int)
         plan = request.args.get('plan', 'plan_100')
         user_id = request.args.get('user_id', '')
-        
-        upi_link = f"upi://pay?pa={APP_CONFIG['UPI_ID']}&pn={APP_CONFIG['UPI_NAME']}&am={amount}&cu=INR&tn=Plan Purchase: {plan} - User: {user_id}"
-        
-        return jsonify({
-            'success': True,
-            'upi_link': upi_link,
-            'qr_code_url': f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_link}"
-        })
+        upi_link = f"upi://pay?pa={APP_CONFIG['UPI_ID']}&pn={APP_CONFIG['UPI_NAME']}&am={amount}&cu=INR&tn=Plan:{plan}-User:{user_id}"
+        return jsonify({'success': True, 'upi_link': upi_link, 'qr_url': f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={upi_link}"})
     except Exception as e:
-        logger.error(f"UPI payment error: {e}")
         return jsonify({'error': str(e)}), 500
 
 # ─────────────────────────────────────────────────────────────────────
 # 🤖 Telegram Bot
 # ─────────────────────────────────────────────────────────────────────
-
 try:
     import telebot
     from telebot import types
@@ -298,82 +230,49 @@ if bot:
             
             welcome_text = f"""
 ✨ <b>Welcome to UltimateMediaSearchBot!</b> ✨
-
 🇮🇳 <b>India's #1 Destination for Earning & Social Media Growth.</b>
-
 Namaste! 🙏 Aapne sahi jagah kadam rakha hai. Chahe aap extra income kamana chahte ho ya apne brand ki reach badhana, hum aapke saath hain.
 
 ━━━━━━━━━━━━━━━━━━━━
-
 💰 <b>EARNING DHAMAKA (Subscription: ₹100)</b>
-
-Ab apne mobile ka sahi istemal karein aur rozana kamayein!
-
 ✅ <b>VIP Tasks:</b> High-paying social media tasks unlock karein.
 ✅ <b>Fast Payout:</b> Apni mehnat ki kamayi turant withdraw karein.
 ✅ <b>Refer & Earn:</b> Doston ko join karayein aur lifetime 10% commission payein.
-
 <b>Start earning by completing these tasks:</b>
 1️⃣ <b>YouTube:</b> <a href="{APP_CONFIG['YOUTUBE']}">Channel Link</a>
 2️⃣ <b>Instagram:</b> <a href="{APP_CONFIG['INSTAGRAM']}">Profile Link</a>
 3️⃣ <b>Facebook:</b> <a href="{APP_CONFIG['FACEBOOK']}">Official Profile</a>
 
 ━━━━━━━━━━━━━━━━━━━━
-
 📢 <b>PROMOTION HUB (Plan: ₹500)</b>
-
 Kya aap apna YouTube, Instagram ya Facebook viral karna chahte hain?
-
 🚀 <b>Real Traffic:</b> Koi bot nahi, sirf asli users.
 🚀 <b>Instant Reach:</b> Apne link par dheron likes aur followers payein.
 🔗 <b>Join our Network:</b> <a href="{APP_CONFIG['COMMUNITY_LINK']}">UltimateMediaSearch Community</a>
 
 ━━━━━━━━━━━━━━━━━━━━
-
 🔥 <b>AAJ KA MOTIVATION</b>
-
 <i>"Zamaana badal raha hai, ab mehnat ke saath-saath smart work karne ka time hai. Aaj ka ₹100 ka chota sa investment aapki kal ki badi kamyabi ban sakta hai. Der mat kijiye!"</i>
 
 ━━━━━━━━━━━━━━━━━━━━
-
 👇 <b>Neeche diye gaye buttons par click karke shuru karein!</b>
             """
             
-            # ✅ UPDATED BUTTONS - Only 3 Buttons
             markup = types.InlineKeyboardMarkup(row_width=1)
-            
-            # 1. DeepSeek AI Chat Button
             markup.add(types.InlineKeyboardButton("🤖 DeepSeek AI Chat", url="https://chat.deepseek.com"))
-            
-            # 2. Buy Plans Buttons (Direct UPI Payment)
             markup.add(
                 types.InlineKeyboardButton("⭐ Buy ₹100 Plan", callback_data="buy_100"),
                 types.InlineKeyboardButton("🚀 Buy ₹500 Plan", callback_data="buy_500")
             )
             
-            # Send Photo + Message
             try:
                 img_resp = requests.get(APP_CONFIG['BANNER'], timeout=10)
-                bot.send_photo(
-                    message.chat.id, 
-                    photo=img_resp.content,
-                    caption=welcome_text, 
-                    reply_markup=markup, 
-                    parse_mode="HTML"
-                )
-                logger.info(f"✅ Photo + Message sent to {uid}")
+                bot.send_photo(message.chat.id, photo=img_resp.content, caption=welcome_text, reply_markup=markup, parse_mode="HTML")
             except Exception as e:
                 logger.error(f"Photo send error: {e}")
-                bot.send_message(
-                    message.chat.id, 
-                    f"🖼️ Image: {APP_CONFIG['BANNER']}\n\n{welcome_text}", 
-                    reply_markup=markup, 
-                    parse_mode="HTML"
-                )
-                
+                bot.send_message(message.chat.id, f"🖼️ Image: {APP_CONFIG['BANNER']}\n\n{welcome_text}", reply_markup=markup, parse_mode="HTML")
         except Exception as e:
             logger.error(f"Start error: {e}")
-            bot.send_message(message.chat.id, "⚠️ Error. Try /start again.")
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith('buy_'))
     def handle_buy_plan(call):
@@ -381,55 +280,31 @@ Kya aap apna YouTube, Instagram ya Facebook viral karna chahte hain?
             plan = call.data.split('_')[1]
             amount = 100 if plan == '100' else 500
             user_id = call.from_user.id
+            upi_link = f"upi://pay?pa={APP_CONFIG['UPI_ID']}&pn={APP_CONFIG['UPI_NAME']}&am={amount}&cu=INR&tn=Plan:{plan}-User:{user_id}"
             
-            # Generate Direct UPI Payment Link
-            upi_link = f"upi://pay?pa={APP_CONFIG['UPI_ID']}&pn={APP_CONFIG['UPI_NAME']}&am={amount}&cu=INR&tn=Plan Purchase: {plan} - User: {user_id}"
-            
-            # Save payment request to Firebase
-            payment_data = {
-                'user_id': user_id,
-                'username': call.from_user.username or 'Unknown',
-                'amount': amount,
-                'plan': f'plan_{plan}',
-                'status': 'pending',
-                'timestamp': int(time.time() * 1000),
-                'upi_link': upi_link
-            }
-            
+            payment_data = {'user_id': user_id, 'username': call.from_user.username or 'Unknown', 'amount': amount, 'plan': f'plan_{plan}', 'status': 'pending', 'timestamp': int(time.time() * 1000), 'upi_link': upi_link}
             try:
                 db.reference(f'payments/{user_id}/{int(time.time() * 1000)}').set(payment_data)
             except:
                 firebase_db.set(f'payments/{user_id}/{int(time.time() * 1000)}', payment_data)
             
-            # Send payment message with UPI link
             markup = types.InlineKeyboardMarkup(row_width=1)
             markup.add(types.InlineKeyboardButton("💳 Pay Now via UPI", url=upi_link))
             markup.add(types.InlineKeyboardButton("📞 Contact Admin", url=APP_CONFIG['SUPPORT_LINK']))
             
             plan_name = "₹100 - Earning Booster" if plan == '100' else "₹500 - Promotion Hub"
-            
             bot.edit_message_text(
-                f"💳 <b>Payment Details</b>\n\n"
-                f"Plan: {plan_name}\n"
-                f"Amount: ₹{amount}\n\n"
-                f"UPI ID: <code>{APP_CONFIG['UPI_ID']}</code>\n\n"
-                f"✅ Direct UPI payment link neeche hai:\n"
-                f"🔗 <a href='{upi_link}'>Click here to Pay</a>\n\n"
-                f"📱 Ya UPI app mein ye ID daalein:\n<code>{APP_CONFIG['UPI_ID']}</code>\n\n"
-                f"✅ Payment ke baad screenshot admin ko bhejein.",
-                call.message.chat.id, call.message.message_id,
-                reply_markup=markup, parse_mode="HTML"
+                f"💳 <b>Payment Details</b>\n\nPlan: {plan_name}\nAmount: ₹{amount}\n\nUPI ID: <code>{APP_CONFIG['UPI_ID']}</code>\n\n✅ Direct UPI payment link neeche hai:\n🔗 <a href='{upi_link}'>Click here to Pay</a>\n\n📱 Ya UPI app mein ye ID daalein:\n<code>{APP_CONFIG['UPI_ID']}</code>\n\n✅ Payment ke baad screenshot admin ko bhejein.",
+                call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="HTML"
             )
             bot.answer_callback_query(call.id)
-            
         except Exception as e:
             logger.error(f"Buy plan error: {e}")
             bot.answer_callback_query(call.id, "Error processing payment", show_alert=True)
 
 # ─────────────────────────────────────────────────────────────────────
-# 🔗 Webhook
+# 🔗 Webhook & Error Handlers
 # ─────────────────────────────────────────────────────────────────────
-
 @app.route('/webhook', methods=['POST'])
 def webhook():
     if not bot: return 'Bot unavailable', 503
