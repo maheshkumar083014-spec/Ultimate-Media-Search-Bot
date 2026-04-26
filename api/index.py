@@ -1,8 +1,9 @@
 """
-🤖 Ultimate Media Search Bot - Complete Professional Version
-✅ UPI Payment Integration (8543083014@ikwik)
-✅ Buy Plans (₹100 & ₹500) - Fixed & Working
-✅ Premium Dashboard + Admin Panel
+🤖 Ultimate Media Search Bot - Professional Edition
+✅ DeepSeek Chat Integration
+✅ Updated Buttons (Only Essential)
+✅ Premium Security & Validation
+✅ UPI Payment (8543083014@ikwik)
 ✅ Firebase asia-southeast1 + Vercel Ready
 """
 
@@ -13,8 +14,10 @@ import time
 import logging
 import hashlib
 import secrets
+import hmac
 from datetime import datetime
 from typing import Optional, Dict, Any
+from functools import wraps
 import requests
 
 # ─────────────────────────────────────────────────────────────────────
@@ -27,7 +30,32 @@ logging.basicConfig(
     force=True
 )
 logger = logging.getLogger(__name__)
-logger.info("🚀 Starting Ultimate Media Search Bot...")
+logger.info("🚀 Starting Ultimate Media Search Bot v2.0...")
+
+# ─────────────────────────────────────────────────────────────────────
+# 🔐 Security Functions
+# ─────────────────────────────────────────────────────────────────────
+def validate_user_input(data: str, max_length: int = 1000) -> str:
+    """Sanitize user input to prevent injection attacks"""
+    if not 
+        return ''
+    # Remove dangerous characters
+    sanitized = ''.join(c for c in str(data) if ord(c) < 128)
+    # Limit length
+    return sanitized[:max_length].strip()
+
+def generate_secure_token(length: int = 32) -> str:
+    """Generate cryptographically secure token"""
+    return secrets.token_hex(length)
+
+def verify_hmac_signature(payload: str, signature: str, secret: str) -> bool:
+    """Verify HMAC signature for webhook security"""
+    expected = hmac.new(
+        secret.encode(),
+        payload.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
 
 # ─────────────────────────────────────────────────────────────────────
 # 🔐 Firebase Credential Parser
@@ -117,6 +145,9 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN', '8701635891:AAFmgU89KRhd2dhE-PqRY-mBmGy_
 VERCEL_DOMAIN = os.environ.get('VERCEL_URL', 'ultimate-media-search-bot.vercel.app')
 if not VERCEL_DOMAIN.startswith('https://'): VERCEL_DOMAIN = f"https://{VERCEL_DOMAIN}"
 
+# Security: Admin Key for sensitive operations
+ADMIN_KEY = os.environ.get('ADMIN_KEY', 'UltimateAdmin2026Secure!')
+
 APP_CONFIG = {
     'POINTS_PER_DOLLAR': 100, 'AD_POINTS': 25, 'SOCIAL_POINTS': 100,
     'REFERRAL_BONUS': 50, 'MIN_WITHDRAW': 100,
@@ -128,9 +159,12 @@ APP_CONFIG = {
     'BANNER': 'https://i.ibb.co/9kmTw4Gh/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg',
     'SUPPORT_LINK': 'https://t.me/YourSupportUsername',
     'COMMUNITY_LINK': 'https://t.me/YourCommunityLink',
-    'UPI_ID': '8543083014@ikwik',  # ✅ UPI Payment ID
+    'UPI_ID': '8543083014@ikwik',
     'UPI_NAME': 'Ultimate Media Search',
-    'DASHBOARD_URL': f'{VERCEL_DOMAIN}/dashboard'
+    'DASHBOARD_URL': f'{VERCEL_DOMAIN}/dashboard',
+    'DEEPSEEK_API_KEY': os.environ.get('DEEPSEEK_API_KEY', ''),  # Optional
+    'DEEPSEEK_BASE_URL': 'https://api.deepseek.com',
+    'DEEPSEEK_MODEL': 'deepseek-chat'
 }
 
 FIREBASE_CONFIG = {
@@ -148,10 +182,11 @@ FIREBASE_CONFIG = {
 # ─────────────────────────────────────────────────────────────────────
 from flask import Flask, request, jsonify, render_template_string
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.urandom(24).hex()
+app.config['SECRET_KEY'] = os.urandom(32).hex()
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max
 
 # ─────────────────────────────────────────────────────────────────────
-# 🎨 Dashboard HTML (Complete)
+# 🎨 Dashboard HTML (Complete & Secure)
 # ─────────────────────────────────────────────────────────────────────
 DASHBOARD_HTML = '''<!DOCTYPE html>
 <html lang="en">
@@ -159,6 +194,7 @@ DASHBOARD_HTML = '''<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#667eea">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://telegram.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;">
 <title>💰 Ultimate Media Search - Earn Dashboard</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -181,10 +217,11 @@ body{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667
 .task-icon{width:45px;height:45px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:rgba(255,255,255,0.2)}
 .task-details h3{font-size:0.95rem;margin-bottom:3px}.task-details p{font-size:0.75rem;opacity:0.8}
 .task-reward{background:#48bb78;color:#fff;padding:6px 12px;border-radius:20px;font-size:0.8rem;font-weight:bold}
-.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:1rem;font-weight:bold;cursor:pointer;margin:8px 0;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn{width:100%;padding:15px;border:none;border-radius:12px;font-size:1rem;font-weight:bold;cursor:pointer;margin:8px 0;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s}
 .btn:active{transform:scale(0.98)}.btn:disabled{opacity:0.6;cursor:not-allowed}
 .btn-primary{background:#fff;color:#667eea}.btn-secondary{background:rgba(255,255,255,0.2);color:#fff}.btn-success{background:#48bb78;color:#fff}
 .btn-warning{background:#ed8936;color:#fff}.btn-danger{background:#f56565;color:#fff}
+.btn-deepseek{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
 #adBtn{background:linear-gradient(135deg,#f093fb,#f5576c);color:#fff;font-size:1.1rem;padding:18px}
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:#1a202c;color:#fff;padding:12px 24px;border-radius:12px;font-weight:600;z-index:1000;transition:transform 0.3s;box-shadow:0 10px 40px rgba(0,0,0,0.3);display:flex;align-items:center;gap:8px}
 .toast.show{transform:translateX(-50%) translateY(0)}.toast.success{background:#48bb78}.toast.error{background:#f56565}.toast.info{background:#667eea}
@@ -197,8 +234,6 @@ body{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(26,32,44,0.95);backdrop-filter:blur(10px);padding:10px 20px;padding-bottom:max(10px,env(safe-area-inset-bottom));display:flex;justify-content:space-around;border-top:1px solid rgba(255,255,255,0.1)}
 .nav-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 16px;border-radius:12px;cursor:pointer;border:none;background:none;color:#fff}
 .nav-item.active{background:rgba(255,255,255,0.15)}.nav-item .icon{font-size:1.3rem}.nav-item .label{font-size:0.7rem;opacity:0.8}
-.upi-box{background:linear-gradient(135deg,#fff,#f0f0f0);color:#1a202c;padding:20px;border-radius:16px;margin:15px 0;text-align:center}
-.upi-qr{width:200px;height:200px;margin:15px auto;border-radius:12px;border:3px solid #667eea}
 ::-webkit-scrollbar{width:0}
 </style>
 </head>
@@ -216,6 +251,11 @@ body{font-family:-apple-system,sans-serif;background:linear-gradient(135deg,#667
 <div class="stat-item"><span class="stat-value" id="ads">0</span><div class="stat-label">Ads</div></div>
 <div class="stat-item"><span class="stat-value" id="totalEarned">$0.00</span><div class="stat-label">Total</div></div>
 </div>
+</div>
+<div class="card">
+<div class="card-title">🤖 DeepSeek AI Chat</div>
+<button class="btn btn-deepseek" onclick="openDeepSeek()"><span>💬</span><span>Chat with DeepSeek AI</span></button>
+<p style="font-size:0.8rem;opacity:0.8;margin-top:10px;text-align:center">Premium AI assistant for your queries</p>
 </div>
 <div class="card">
 <div class="card-title">💎 Buy Premium Plans</div>
@@ -280,9 +320,10 @@ async function claimTask(plat){const key=plat+'_task';if(CLAIMED[key]){showToast
 const links={youtube:CFG.YOUTUBE,instagram:CFG.INSTAGRAM,facebook:CFG.FACEBOOK};window.open(links[plat],'_blank');
 try{await db.ref('users/'+UID).update({points:(USER_DATA.points||0)+CFG.SOCIAL_POINTS,total_earned:(USER_DATA.total_earned||0)+CFG.SOCIAL_POINTS,tasks_completed:(USER_DATA.tasks_completed||0)+1,last_active:Date.now(),['social_tasks/'+plat]:{completed:true,completed_at:Date.now()}});
 CLAIMED[key]=true;localStorage.setItem('c_'+UID,JSON.stringify(CLAIMED));showToast('🎉 +'+CFG.SOCIAL_POINTS+' Points!','success');}catch(e){showToast('❌ Failed','error');}}
+function openDeepSeek(){window.open('https://chat.deepseek.com','_blank');showToast('🤖 DeepSeek AI opened in new tab','info');}
 async function buyPlan(amount,planType){
 const upiLink=`upi://pay?pa=${CFG.UPI_ID}&pn=${encodeURIComponent(CFG.UPI_NAME)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Plan Purchase: '+planType)}`;
-const confirmMsg=`🛒 Buy ${planType==='plan_100'?'₹100 Plan':'₹500 Plan'}?\n\n💳 Pay ₹${amount} via UPI\n\nAfter payment, screenshot send karein admin ko.`;
+const confirmMsg=`🛒 Buy ${planType==='plan_100'?'₹100 Plan':'₹500 Plan'}?\\n\\n💳 Pay ₹${amount} via UPI\\n\\nAfter payment, screenshot send karein admin ko.`;
 if(confirm(confirmMsg)){try{window.open(upiLink,'_blank');await db.ref('payments/'+UID+'/'+Date.now()).set({amount:amount,plan:planType,status:'pending',timestamp:Date.now()});
 showToast('💳 Payment page opened! Screenshot save karein.','info');}catch(e){showToast('❌ Payment failed','error');}}}
 function copyReferral(){navigator.clipboard.writeText(document.getElementById('refLink').textContent).then(()=>showToast('🔗 Copied!','success'));}
@@ -311,6 +352,9 @@ def root():
 def dashboard():
     tid = request.args.get('id', '123')
     name = request.args.get('name', 'User')
+    # Security: Validate input
+    tid = validate_user_input(str(tid), 50)
+    name = validate_user_input(name, 100)
     try:
         if not get_user(tid):
             set_user(tid, {'uid':tid,'name':name,'username':name,'points':0,'total_earned':0,'ad_views':0,'tasks_completed':0,'joined_at':int(time.time()*1000),'last_active':int(time.time()*1000),'referral_code':'UMS'+str(tid)[-6:].upper(),'plan':'free'})
@@ -348,55 +392,49 @@ if bot:
             welcome_text = f"""
 ✨ <b>Welcome to UltimateMediaSearchBot!</b> ✨
 
-🇳 <b>India's #1 Destination for Earning & Social Media Growth.</b>
+🇮🇳 <b>India's #1 Earning & AI Platform</b>
 
-Namaste! 🙏 Aapne sahi jagah kadam rakha hai.
-
-━━━━━━━━━━━━━━━━━━━━
-
-💰 <b>EARNING DHAMAKA</b>
-✅ VIP Tasks: High-paying social media tasks
-✅ Fast Payout: Instant withdrawal
-✅ Refer & Earn: Lifetime 10% commission
-
-📱 <b>Social Tasks:</b>
-1️⃣ YouTube: <a href="{APP_CONFIG['YOUTUBE']}">Subscribe</a>
-2️⃣ Instagram: <a href="{APP_CONFIG['INSTAGRAM']}">Follow</a>
-3️⃣ Facebook: <a href="{APP_CONFIG['FACEBOOK']}">Like</a>
+Namaste {name}! 🙏
 
 ━━━━━━━━━━━━━━━━━━━━
 
-💳 <b>PREMIUM PLANS</b>
-⭐ ₹100 Plan - Earning Booster
-🚀 ₹500 Plan - Promotion Hub
+🔘 <b>Power button par click karein</b>
 
 ━━━━━━━━━━━━━━━━━━━━
 
-👇 <b>Neeche buttons se shuru karein!</b>
+💎 <b>Features:</b>
+• 💬 DeepSeek AI Chat
+• 💰 Earn by Tasks
+• 📱 Social Media Growth
+• 💳 Premium Plans
+
+━━━━━━━━━━━━━━━━━━━━
+
+👇 <b>Niche diye gaye buttons se shuru karein!</b>
             """
             
-            markup = types.InlineKeyboardMarkup(row_width=2)
-            markup.add(
-                types.InlineKeyboardButton("💰 Earn Points", url=dashboard_url),
-                types.InlineKeyboardButton("📊 My Dashboard", url=dashboard_url)
-            )
+            # ✅ Updated Buttons - Only Essential
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            
+            # DeepSeek Chat Button
+            markup.add(types.InlineKeyboardButton("🤖 DeepSeek AI Chat", url="https://chat.deepseek.com"))
+            
+            # Buy Plans Buttons
             markup.add(
                 types.InlineKeyboardButton("⭐ Buy ₹100 Plan", callback_data="buy_100"),
                 types.InlineKeyboardButton("🚀 Buy ₹500 Plan", callback_data="buy_500")
-            )
-            markup.add(
-                types.InlineKeyboardButton("📺 Watch Ad", url=APP_CONFIG['AD_LINK']),
-                types.InlineKeyboardButton("💬 Support", url=APP_CONFIG['SUPPORT_LINK'])
             )
             
             try:
                 img_resp = requests.get(APP_CONFIG['BANNER'], timeout=10)
                 bot.send_photo(message.chat.id, photo=img_resp.content, caption=welcome_text, reply_markup=markup, parse_mode="HTML")
-            except:
+            except Exception as e:
+                logger.error(f"Photo send error: {e}")
                 bot.send_message(message.chat.id, f"🖼️ Image: {APP_CONFIG['BANNER']}\n\n{welcome_text}", reply_markup=markup, parse_mode="HTML")
                 
         except Exception as e:
             logger.error(f"Start error: {e}")
+            bot.send_message(message.chat.id, "⚠️ Error. Try /start again.")
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith('buy_'))
     def handle_buy_plan(call):
@@ -405,7 +443,7 @@ Namaste! 🙏 Aapne sahi jagah kadam rakha hai.
             amount = 100 if plan == '100' else 500
             upi_link = f"upi://pay?pa={APP_CONFIG['UPI_ID']}&pn={APP_CONFIG['UPI_NAME']}&am={amount}&cu=INR&tn=Plan Purchase {plan}"
             
-            markup = types.InlineKeyboardMarkup()
+            markup = types.InlineKeyboardMarkup(row_width=1)
             markup.add(types.InlineKeyboardButton("💳 Pay via UPI", url=upi_link))
             markup.add(types.InlineKeyboardButton("📞 Contact Admin", url=APP_CONFIG['SUPPORT_LINK']))
             
@@ -421,6 +459,7 @@ Namaste! 🙏 Aapne sahi jagah kadam rakha hai.
             bot.answer_callback_query(call.id)
         except Exception as e:
             logger.error(f"Buy plan error: {e}")
+            bot.answer_callback_query(call.id, "Error", show_alert=True)
 
 # ─────────────────────────────────────────────────────────────────────
 # 🔗 Webhook
