@@ -1,92 +1,873 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <title>Earn Bot Dashboard</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f5f5f7; margin: 0; padding: 20px; }
-    .card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-    h2 { margin-top: 0; }
-    .points { font-size: 2em; font-weight: bold; color: #007aff; }
-    .task { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-    .task:last-child { border-bottom: none; }
-    .task-name { flex: 1; }
-    .task-btn { padding: 8px 16px; background: #007aff; color: white; border-radius: 8px; text-decoration: none; font-weight: 500; }
-    .completed { background: #34c759; }
-    .login-box { text-align: center; padding: 40px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#667eea">
+    <title>💰 Ultimate Media Search - Earn Dashboard</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <!-- Telegram WebApp -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #667eea;
+            --primary-dark: #764ba2;
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #f56565;
+            --dark: #1a202c;
+            --light: rgba(255, 255, 255, 0.1);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+        
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+        }
+        
+        /* Header Card */
+        .header-card {
+            background: var(--light);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .profile-img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            margin-bottom: 15px;
+            object-fit: cover;
+        }
+        
+        .welcome-text {
+            font-size: 1rem;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .user-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .balance {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+        
+        /* Task Cards */
+        .task-card {
+            background: var(--light);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .task-item {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: transform 0.2s;
+        }
+        
+        .task-item:active {
+            transform: scale(0.98);
+        }
+        
+        .task-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+        }
+        
+        .task-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .task-details h3 {
+            font-size: 0.95rem;
+            margin-bottom: 3px;
+        }
+        
+        .task-details p {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+        
+        .task-reward {
+            background: var(--success);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: #fff;
+            color: var(--primary);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+        
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+        }
+        
+        /* Ad Button Special */
+        #adBtn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: #fff;
+            font-size: 1.1rem;
+            padding: 18px;
+        }
+        
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: var(--dark);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            z-index: 1000;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        .toast.info { background: var(--primary); }
+        
+        /* Progress Bar */
+        .progress-container {
+            margin: 15px 0;
+        }
+        
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+        
+        .progress-bar {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success), #38a169);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        
+        /* Referral Section */
+        .referral-box {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .referral-link {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            word-break: break-all;
+            font-family: monospace;
+        }
+        
+        .copy-btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(26, 32, 44, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 10px 20px;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+            display: flex;
+            justify-content: space-around;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+            border-radius: 12px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: #fff;
+            transition: all 0.2s;
+        }
+        
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .nav-item .icon {
+            font-size: 1.3rem;
+        }
+        
+        .nav-item .label {
+            font-size: 0.7rem;
+            opacity: 0.8;
+        }
+        
+        /* Loading Skeleton */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.1) 25%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 75%);
+            background-size: 200% 100%;
+            animation: skeleton 1.5s infinite;
+            border-radius: 8px;
+        }
+        
+        @keyframes skeleton {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* Responsive */
+        @media (max-width: 360px) {
+            .balance { font-size: 2rem; }
+            .task-icon { width: 40px; height: 40px; font-size: 1.2rem; }
+        }
+        
+        /* Hide scrollbar */
+        ::-webkit-scrollbar { width: 0; }
+    </style>
 </head>
 <body>
-  <div id="app">
-    <!-- Telegram login widget -->
-    <div id="login-section" class="card login-box">
-      <h2>🔐 Sign in with Telegram</h2>
-      <script async src="https://telegram.org/js/telegram-widget.js?22"
-              data-telegram-login="{{ bot_username }}"
-              data-size="large"
-              data-onauth="onTelegramAuth(user)"
-              data-request-access="write">
-      </script>
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <span id="toastIcon">✅</span>
+        <span id="toastMsg">Success!</span>
     </div>
-
-    <!-- Dashboard content (hidden until authenticated) -->
-    <div id="dashboard-content" style="display: none;">
-      <div class="card">
-        <h2>👤 Profile</h2>
-        <p id="username"></p>
-        <p class="points" id="points">0</p>
-        <p>Total Points</p>
-      </div>
-      <div class="card">
-        <h2>📋 Tasks</h2>
-        <div id="tasks-list"></div>
-      </div>
+    
+    <div class="container">
+        <!-- Header Card -->
+        <div class="header-card">
+            <img src="https://i.ibb.co/9kmTw4Gh/bf18237f-b2a2-4bb6-91e9-c8df3b427c22.jpg" 
+                 alt="Profile" class="profile-img" id="profileImg">
+            <div class="welcome-text">Welcome back,</div>
+            <div class="user-name" id="userName">Loading...</div>
+            
+            <div class="balance" id="balance">$0.00</div>
+            
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-value" id="points">0</span>
+                    <div class="stat-label">Points</div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="tasks">0</span>
+                    <div class="stat-label">Tasks Done</div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="ads">0</span>
+                    <div class="stat-label">Ads Watched</div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="totalEarned">$0.00</span>
+                    <div class="stat-label">Total Earned</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Daily Ad Task -->
+        <div class="task-card">
+            <div class="card-title">📺 Daily Tasks</div>
+            <button class="btn" id="adBtn" onclick="watchAd()">
+                <span>🎬</span>
+                <span>Watch Daily Ad</span>
+                <span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:8px;font-size:0.85rem">+25</span>
+            </button>
+            
+            <div class="progress-container">
+                <div class="progress-label">
+                    <span>Daily Progress</span>
+                    <span id="progressText">0 / 2000 ads</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Social Media Tasks -->
+        <div class="task-card">
+            <div class="card-title">📱 Social Media Tasks</div>
+            <div class="task-list">
+                <div class="task-item" onclick="claimTask('youtube')">
+                    <div class="task-info">
+                        <div class="task-icon" style="background:linear-gradient(135deg,#fee2e2,#fecaca)">▶️</div>
+                        <div class="task-details">
+                            <h3>YouTube Subscribe</h3>
+                            <p>@USSoccerPulse</p>
+                        </div>
+                    </div>
+                    <div class="task-reward">+100</div>
+                </div>
+                
+                <div class="task-item" onclick="claimTask('instagram')">
+                    <div class="task-info">
+                        <div class="task-icon" style="background:linear-gradient(135deg,#fce7f3,#fbcfe8)">📷</div>
+                        <div class="task-details">
+                            <h3>Instagram Follow</h3>
+                            <p>@digital_rockstar_m</p>
+                        </div>
+                    </div>
+                    <div class="task-reward">+100</div>
+                </div>
+                
+                <div class="task-item" onclick="claimTask('facebook')">
+                    <div class="task-info">
+                        <div class="task-icon" style="background:linear-gradient(135deg,#dbeafe,#bfdbfe)">📘</div>
+                        <div class="task-details">
+                            <h3>Facebook Like</h3>
+                            <p>UltimateMediaSearch</p>
+                        </div>
+                    </div>
+                    <div class="task-reward">+100</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Referral Section -->
+        <div class="task-card">
+            <div class="card-title">👥 Invite Friends</div>
+            <p style="font-size:0.9rem;opacity:0.9;margin-bottom:10px">
+                Earn <strong style="color:var(--success)">+50 points</strong> for each friend!
+            </p>
+            <div class="referral-box">
+                <div class="referral-link" id="refLink">Loading...</div>
+                <button class="copy-btn" onclick="copyReferral()">Copy</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px">
+                <button class="btn btn-secondary" onclick="shareReferral()">📤 Share</button>
+                <button class="btn btn-success" onclick="showReferralStats()">📊 Stats</button>
+            </div>
+        </div>
+        
+        <!-- Withdraw Section -->
+        <div class="task-card">
+            <div class="card-title">💰 Withdraw Earnings</div>
+            <p style="font-size:0.9rem;opacity:0.9;margin-bottom:10px">
+                Minimum withdrawal: <strong>$1.00</strong> (100 points)
+            </p>
+            <button class="btn btn-success" onclick="requestWithdraw()" id="withdrawBtn">
+                Request Withdrawal
+            </button>
+        </div>
     </div>
-  </div>
+    
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-item active">
+            <span class="icon">🏠</span>
+            <span class="label">Home</span>
+        </button>
+        <button class="nav-item">
+            <span class="icon">📋</span>
+            <span class="label">Tasks</span>
+        </button>
+        <button class="nav-item">
+            <span class="icon">💰</span>
+            <span class="label">Earn</span>
+        </button>
+        <button class="nav-item">
+            <span class="icon">👤</span>
+            <span class="label">Profile</span>
+        </button>
+    </nav>
 
-  <script>
-    // Telegram login callback
-    function onTelegramAuth(user) {
-      fetch('/auth/telegram', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(user)
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          document.getElementById('login-section').style.display = 'none';
-          document.getElementById('dashboard-content').style.display = 'block';
-          loadDashboard();
+    <script>
+        // ─────────────────────────────────────────────────────────────────────
+        // 🔥 Firebase Configuration
+        // ─────────────────────────────────────────────────────────────────────
+        const firebaseConfig = {{ firebase_config | safe }};
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        
+        // ─────────────────────────────────────────────────────────────────────
+        // 📊 App Configuration
+        // ─────────────────────────────────────────────────────────────────────
+        const APP_CONFIG = {
+            POINTS_PER_DOLLAR: 100,
+            AD_POINTS: 25,
+            SOCIAL_POINTS: 100,
+            REFERRAL_BONUS: 50,
+            DAILY_AD_TARGET: 2000,
+            AD_LINK: '{{ ad_link }}',
+            YOUTUBE: '{{ youtube }}',
+            INSTAGRAM: '{{ instagram }}',
+            FACEBOOK: '{{ facebook }}'
+        };
+        
+        // ─────────────────────────────────────────────────────────────────────
+        // 👤 User State
+        // ─────────────────────────────────────────────────────────────────────
+        const params = new URLSearchParams(window.location.search);
+        let USER_ID = params.get('id') || (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) || '123';
+        let USER_NAME = params.get('name') || (window.Telegram?.WebApp?.initDataUnsafe?.user?.first_name) || 'User';
+        let USER_DATA = {};
+        let CLAIMED_TASKS = JSON.parse(localStorage.getItem(`claimed_${USER_ID}`) || '{}');
+        
+        // Initialize Telegram WebApp
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
         }
-      });
-    }
-
-    async function loadDashboard() {
-      const userRes = await fetch('/api/user');
-      const userData = await userRes.json();
-      if (userData.error) return;
-      document.getElementById('username').textContent = userData.username || userData.user_id;
-      document.getElementById('points').textContent = userData.points || 0;
-
-      const tasksRes = await fetch('/api/tasks');
-      const tasks = await tasksRes.json();
-      const container = document.getElementById('tasks-list');
-      container.innerHTML = '';
-      tasks.forEach(task => {
-        const div = document.createElement('div');
-        div.className = 'task';
-        div.innerHTML = `
-          <span class="task-name">${task.name} (+${task.points} pts)</span>
-          ${task.completed
-            ? '<span class="task-btn completed">Done</span>'
-            : `<a href="${task.url}" target="_blank" class="task-btn">${task.button_text}</a>`
-          }
-        `;
-        container.appendChild(div);
-      });
-    }
-  </script>
+        
+        // ─────────────────────────────────────────────────────────────────────
+        // 🚀 Initialization
+        // ─────────────────────────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('userName').textContent = USER_NAME;
+            loadUserData();
+            updateTaskButtons();
+        });
+        
+        // ─────────────────────────────────────────────────────────────────────
+        // 🗄️ Firebase Operations
+        // ─────────────────────────────────────────────────────────────────────
+        function loadUserData() {
+            const userRef = db.ref(`users/${USER_ID}`);
+            
+            userRef.on('value', (snapshot) => {
+                let data = snapshot.val();
+                
+                if (!data) {
+                    // Create new user
+                    createUser();
+                    return;
+                }
+                
+                USER_DATA = data;
+                updateUI();
+            });
+        }
+        
+        async function createUser() {
+            const timestamp = Date.now();
+            const referralCode = 'UMS' + String(USER_ID).slice(-6).toUpperCase();
+            
+            const newUser = {
+                uid: USER_ID,
+                name: USER_NAME,
+                username: USER_NAME,
+                referral_code: referralCode,
+                points: 0,
+                total_earned: 0,
+                total_withdrawn: 0,
+                ad_views: 0,
+                tasks_completed: 0,
+                joined_at: timestamp,
+                last_active: timestamp,
+                last_ad_date: '',
+                daily_ad_completed: false
+            };
+            
+            await db.ref(`users/${USER_ID}`).set(newUser);
+            USER_DATA = newUser;
+            updateUI();
+            showToast('🎉 Welcome! Your account has been created.', 'success');
+        }
+        
+        function updateUI() {
+            const points = USER_DATA.points || 0;
+            const balance = (points / APP_CONFIG.POINTS_PER_DOLLAR).toFixed(2);
+            const totalEarned = ((USER_DATA.total_earned || 0) / APP_CONFIG.POINTS_PER_DOLLAR).toFixed(2);
+            const adViews = USER_DATA.ad_views || 0;
+            const progress = Math.min((adViews / APP_CONFIG.DAILY_AD_TARGET) * 100, 100);
+            
+            // Update stats
+            document.getElementById('balance').textContent = `$${balance}`;
+            document.getElementById('points').textContent = points.toLocaleString();
+            document.getElementById('tasks').textContent = USER_DATA.tasks_completed || 0;
+            document.getElementById('ads').textContent = adViews.toLocaleString();
+            document.getElementById('totalEarned').textContent = `$${totalEarned}`;
+            
+            // Update progress bar
+            document.getElementById('progressFill').style.width = `${progress}%`;
+            document.getElementById('progressText').textContent = `${adViews.toLocaleString()} / ${APP_CONFIG.DAILY_AD_TARGET.toLocaleString()} ads`;
+            
+            // Update referral link
+            const refCode = USER_DATA.referral_code || 'UMS' + String(USER_ID).slice(-6).toUpperCase();
+            document.getElementById('refLink').textContent = `https://t.me/UltimateMediaSearchBot?start=${refCode}`;
+            
+            // Check daily ad status
+            const today = new Date().toDateString();
+            const lastAdDate = USER_DATA.last_ad_date || '';
+            const adBtn = document.getElementById('adBtn');
+            
+            if (lastAdDate === today) {
+                adBtn.disabled = true;
+                adBtn.innerHTML = '<span>✅</span><span>Daily Ad Completed</span>';
+            } else {
+                adBtn.disabled = false;
+                adBtn.innerHTML = '<span>🎬</span><span>Watch Daily Ad</span><span style="background:rgba(255,255,255,0.2);padding:4px 10px;border-radius:8px;font-size:0.85rem">+25</span>';
+            }
+            
+            // Update task buttons
+            updateTaskButtons();
+        }
+        
+        function updateTaskButtons() {
+            ['youtube', 'instagram', 'facebook'].forEach(platform => {
+                if (CLAIMED_TASKS[platform]) {
+                    // Mark as completed (visual only - in production, check Firebase)
+                }
+            });
+        }
+        
+        // ─────────────────────────────────────────────────────────────────────
+        // 📺 Watch Ad Function
+        // ─────────────────────────────────────────────────────────────────────
+        async function watchAd() {
+            const today = new Date().toDateString();
+            
+            if (USER_DATA.last_ad_date === today) {
+                showToast('⚠️ You already watched today\'s ad!', 'info');
+                return;
+            }
+            
+            const btn = document.getElementById('adBtn');
+            btn.disabled = true;
+            
+            // Open ad link
+            window.open(APP_CONFIG.AD_LINK, '_blank');
+            
+            // 30-second countdown
+            let seconds = 30;
+            btn.innerHTML = `<span>⏳</span><span>Wait ${seconds}s...</span>`;
+            
+            const timer = setInterval(async () => {
+                seconds--;
+                btn.innerHTML = `<span>⏳</span><span>Wait ${seconds}s...</span>`;
+                
+                if (seconds <= 0) {
+                    clearInterval(timer);
+                    
+                    try {
+                        // Add points to Firebase
+                        await db.ref(`users/${USER_ID}`).update({
+                            ad_views: (USER_DATA.ad_views || 0) + 1,
+                            points: (USER_DATA.points || 0) + APP_CONFIG.AD_POINTS,
+                            total_earned: (USER_DATA.total_earned || 0) + APP_CONFIG.AD_POINTS,
+                            last_ad_date: today,
+                            daily_ad_completed: true,
+                            last_active: Date.now()
+                        });
+                        
+                        showToast(`🎉 +${APP_CONFIG.AD_POINTS} Points! Ad completed.`, 'success');
+                        btn.innerHTML = '<span>✅</span><span>Claimed!</span>';
+                        
+                    } catch (error) {
+                        showToast('❌ Failed to claim points. Try again.', 'error');
+                        btn.disabled = false;
+                    }
+                }
+            }, 1000);
+        }
+        
+        // ─────────────────────────────────────────────────────────────────────
+        // 📱 Social Task Function
+        // ─────────────────────────────────────────────────────────────────────
+        async function claimTask(platform) {
+            const taskKey = `${platform}_task`;
+            
+            if (CLAIMED_TASKS[taskKey]) {
+                showToast('✅ You already claimed this task!', 'info');
+                return;
+            }
+            
+            // Open social media link
+            const links = {
+                youtube: APP_CONFIG.YOUTUBE,
+                instagram: APP_CONFIG.INSTAGRAM,
+                facebook: APP_CONFIG.FACEBOOK
+            };
+            
+            window.open(links[platform], '_blank');
+            
+            try {
+                // Add points to Firebase
+                await db.ref(`users/${USER_ID}`).update({
+                    points: (USER_DATA.points || 0) + APP_CONFIG.SOCIAL_POINTS,
+                    total_earned: (USER_DATA.total_earned || 0) + APP_CONFIG.SOCIAL_POINTS,
+                    tasks_completed: (USER_DATA.tasks_completed || 0) + 1,
+                    last_active: Date.now(),
+                    [`social_tasks/${platform}`]: {
+                        completed: true,
+                        completed_at: Date.now()
+                    }
+                });
+                
+                // Mark as claimed locally
+                CLAIMED_TASKS[taskKey] = true;
+                localStorage.setItem(`claimed_${USER_ID}`, JSON.stringify(CLAIMED_TASKS));
+                
+                showToast(`🎉 +${APP_CONFIG.SOCIAL_POINTS} Points! ${platform} task completed!`, 'success');
+                
+            } catch (error) {
+                showToast('❌ Failed to claim points. Try again.', 'error');
+            }
+        }
+        
+        // ─────────────────────────────────────────────────────────────────────
+        // 👥 Referral Functions
+        // ─────────────────────────────────────────────────────────────────────
+        function copyReferral() {
+            const link = document.getElementById('refLink').textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                showToast('🔗 Referral link copied to clipboard!', 'success');
+            }).catch(() => {
+                // Fallback for older browsers
+                const input = document.createElement('input');
+                input.value = link;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                showToast('🔗 Referral link copied!', 'success');
+            });
+        }
+        
+        function shareReferral() {
+            const link = document.getElementById('refLink').textContent;
+            const text = `🎁 Join me on Ultimate Media Search! Earn money by watching ads and completing simple tasks.\n\nUse my referral link: ${link}`;
+            
+            if (tg) {
+                tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
+            } else {
+                window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`, '_blank');
+            }
+        }
+        
+        function showReferralStats() {
+            const refCount = USER_DATA.referral_count || 0;
+            const refEarnings = refCount * APP_CONFIG.REFERRAL_BONUS;
+            showToast(`📊 Referrals: ${refCount} | Points Earned: ${refEarnings}`, 'info');
+        }
+        
+        // ─────────────────────────────────────────────────────────────────────
+        // 💰 Withdrawal Function
+        // ─────────────────────────────────────────────────────────────────────
+        async function requestWithdraw() {
+            const points = USER_DATA.points || 0;
+            const minWithdraw = APP_CONFIG.POINTS_PER_DOLLAR;
+            
+            if (points < minWithdraw) {
+                showToast(`💰 You need ${minWithdraw} points ($1.00) to withdraw!`, 'error');
+                return;
+            }
+            
+            const usdAmount = (points / APP_CONFIG.POINTS_PER_DOLLAR).toFixed(2);
+            const confirm = window.confirm(`Withdraw $${usdAmount}?\n\nPoints will be deducted from your balance.`);
+            
+            if (confirm) {
+                try {
+                    await db.ref(`withdrawals/${USER_ID}/${Date.now()}`).push({
+                        amount: points,
+                        usd: usdAmount,
+                        status: 'pending',
+                        requested_at: Date.now()
+                    });
+                    
+                    await db.ref(`users/${USER_ID}`).update({
+                        points: 0,
+                        total_withdrawn: (USER_DATA.total_withdrawn || 0) + points,
+                        pending_withdrawal: true
+                    });
+                    
+                    showToast('✅ Withdrawal request submitted! Processing in 24-48h', 'success');
+                    
+                } catch (error) {
+                    showToast('❌ Withdrawal failed. Try again.', 'error');
+                }
+            }
+        }
+        
+        // ─────────────────────────────────────────────────────────────────────
+        // 🎨 UI Helpers
+        // ─────────────────────────────────────────────────────────────────────
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMsg');
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                info: 'ℹ️',
+                warning: '⚠️'
+            };
+            
+            icon.textContent = icons[type] || '✅';
+            msg.textContent = message;
+            
+            toast.className = `toast ${type} show`;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3500);
+            
+            // Haptic feedback for Telegram
+            if (tg?.HapticFeedback) {
+                tg.HapticFeedback.notificationOccurred(type === 'success' ? 'success' : 'error');
+            }
+        }
+        
+        // Refresh data
+        function refreshData() {
+            showToast('🔄 Refreshing data...', 'info');
+            loadUserData();
+        }
+    </script>
 </body>
 </html>
